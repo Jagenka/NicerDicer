@@ -32,12 +32,15 @@ object Main
             kord.getGlobalApplicationCommands().collect {
                 it.delete()
             }
+            println("Old commands were deleted!")
 
             Registry.prepareCommands(kord)
+            println("New commands were registered!")
 
             kord.on<ChatInputCommandInteractionCreateEvent> {
                 Registry.handleCommand(this)
             }
+            println("Event handlers set!")
 
             kord.login()
         }

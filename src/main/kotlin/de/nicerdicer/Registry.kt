@@ -2,13 +2,15 @@ package de.nicerdicer
 
 import de.nicerdicer.functions.FunctionBase
 import de.nicerdicer.functions.RollFunction
+import de.nicerdicer.functions.ShutdownFunction
 import dev.kord.core.Kord
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 
 object Registry
 {
-    val commands = listOf<FunctionBase>(
-        RollFunction
+    val commands = listOf(
+        RollFunction,
+        ShutdownFunction
     )
 
     val commandMap = mutableMapOf<String, FunctionBase>()
