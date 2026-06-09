@@ -27,4 +27,4 @@ replay_pid*
 .kotlin/
 
 # Secrets
-resources/token.txt
+/src/main/resources/token.txt
