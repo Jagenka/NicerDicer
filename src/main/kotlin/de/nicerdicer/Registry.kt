@@ -1,5 +1,6 @@
 package de.nicerdicer
 
+import de.nicerdicer.functions.CardFunction
 import de.nicerdicer.functions.FunctionBase
 import de.nicerdicer.functions.RollFunction
 import de.nicerdicer.functions.ShutdownFunction
@@ -10,7 +11,8 @@ object Registry
 {
     val commands = listOf(
         RollFunction,
-        ShutdownFunction
+        ShutdownFunction,
+        CardFunction
     )
 
     val commandMap = mutableMapOf<String, FunctionBase>()
