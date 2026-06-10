@@ -20,11 +20,30 @@ class CardDeck {
     fun shuffle() = cards.shuffle()
 
     fun draw(): Card? = cards.removeFirstOrNull()
+
+    fun insertCardAt(index: Int, card: Card) = cards.add(index, card)
+}
+
+class CardHand {
+    val handSize = 5
+    val cards = mutableListOf<Card>()
+
+    fun addCard(card: Card) = cards.add(card)
+
+    fun removeCardAt(index: Int) = if (0 <= index && index <= cards.lastIndex) cards.removeAt(index) else null
+
+    fun sort()
+    {
+        cards.sortBy { it.rank }
+        cards.sortBy { it.suit }
+    }
+
+    fun getHand() = cards
 }
 
 class Card(val suit: Suit, val rank: Rank) {
-    fun toShortString() = "${suit.asEmoji()}${rank.asShortName()}"
-    override fun toString(): String = if (rank == Rank.JOKER) "${suit.asEmoji()} ${rank.asName()}" else "${rank.asName()} of ${suit.asEmoji()}"
+    fun toLongString() = if (rank == Rank.JOKER) "${suit.asEmoji()} ${rank.asName()}" else "${rank.asName()} of ${suit.asEmoji()}"
+    override fun toString(): String = "${suit.asEmoji()}${rank.asShortName()}"
 }
 
 enum class Suit {
