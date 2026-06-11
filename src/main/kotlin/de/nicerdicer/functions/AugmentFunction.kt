@@ -19,7 +19,7 @@ object AugmentFunction : FunctionBase("augment", "Rolls an augment.")
         kord.createGlobalChatInputCommand(name, description) {
             string("category", "e.g. Breaker or Thinker") {
                 required = true
-                for (entry in Category.entries)
+                for (entry in Classification.entries)
                 {
                     val caseCorrectedName = entry.name.lowercase().replaceFirstChar { it.uppercase() }
                     choice(caseCorrectedName, caseCorrectedName)
@@ -33,7 +33,7 @@ object AugmentFunction : FunctionBase("augment", "Rolls an augment.")
         val response = event.interaction.deferPublicResponse()
         val specifiedCategory = event.interaction.command.strings["category"]!!
 
-        if (!Category.entries.map { entry -> entry.name }.contains(specifiedCategory.uppercase()))
+        if (!Classification.entries.map { entry -> entry.name }.contains(specifiedCategory.uppercase()))
         {
             response.respond {
                 content = "Category $specifiedCategory not found."
@@ -41,14 +41,14 @@ object AugmentFunction : FunctionBase("augment", "Rolls an augment.")
             return
         }
 
-        val categoryAsCategory = Category.valueOf(specifiedCategory.uppercase())
+        val categoryAsClassification = Classification.valueOf(specifiedCategory.uppercase())
 
         val rolledAugment = augmentList.random()
 
         val embedBuilder = EmbedBuilder()
         val footerBuilder = EmbedBuilder.Footer()
         embedBuilder.title = rolledAugment.card.lowercase().replaceFirstChar { it.uppercase() }
-        embedBuilder.description = pickFromAugment(rolledAugment, categoryAsCategory)
+        embedBuilder.description = pickFromAugment(rolledAugment, categoryAsClassification)
         footerBuilder.text = specifiedCategory.lowercase().replaceFirstChar { it.uppercase() }
         embedBuilder.footer = footerBuilder
 
@@ -58,27 +58,27 @@ object AugmentFunction : FunctionBase("augment", "Rolls an augment.")
         }
     }
 
-    private fun pickFromAugment(augment: Augment, category: Category): String
+    private fun pickFromAugment(augment: Augment, classification: Classification): String
     {
-        return when (category)
+        return when (classification)
         {
-            Category.BLASTER -> augment.blaster
-            Category.BREAKER -> augment.breaker
-            Category.BRUTE -> augment.brute
-            Category.CHANGER -> augment.changer
-            Category.MASTER -> augment.master
-            Category.MOVER -> augment.mover
-            Category.SHAKER -> augment.shaker
-            Category.STRANGER -> augment.stranger
-            Category.STRIKER -> augment.striker
-            Category.TINKER -> augment.tinker
-            Category.THINKER -> augment.thinker
-            Category.TRUMP -> augment.trump
+            Classification.BLASTER -> augment.blaster
+            Classification.BREAKER -> augment.breaker
+            Classification.BRUTE -> augment.brute
+            Classification.CHANGER -> augment.changer
+            Classification.MASTER -> augment.master
+            Classification.MOVER -> augment.mover
+            Classification.SHAKER -> augment.shaker
+            Classification.STRANGER -> augment.stranger
+            Classification.STRIKER -> augment.striker
+            Classification.TINKER -> augment.tinker
+            Classification.THINKER -> augment.thinker
+            Classification.TRUMP -> augment.trump
         }
     }
 }
 
-enum class Category
+enum class Classification
 {
     BLASTER,
     BREAKER,
