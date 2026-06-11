@@ -1,5 +1,6 @@
 package de.nicerdicer.util
 
+import dev.kord.common.Color
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
@@ -21,14 +22,14 @@ class Wounds
                 processedWoundCatalogue[type]?.get(severity)?.set(WoundLocation.TORSO, mutableListOf())
                 processedWoundCatalogue[type]?.get(severity)?.set(WoundLocation.ARMS, mutableListOf())
                 processedWoundCatalogue[type]?.get(severity)?.set(WoundLocation.LEGS, mutableListOf())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.HEAD)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.HEAD)?.addAll(map[WoundLocation.HEAD]?.entries?.map { WoundEffect(it.key, it.value) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.TORSO)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.TORSO)?.addAll(map[WoundLocation.TORSO]?.entries?.map { WoundEffect(it.key, it.value) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.ARMS)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.ARMS)?.addAll(map[WoundLocation.ARMS]?.entries?.map { WoundEffect(it.key, it.value) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.LEGS)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.LEGS)?.addAll(map[WoundLocation.LEGS]?.entries?.map { WoundEffect(it.key, it.value) } ?: emptyList())
+                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.HEAD)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.HEAD, severity) } ?: emptyList())
+                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.HEAD)?.addAll(map[WoundLocation.HEAD]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.HEAD, severity) } ?: emptyList())
+                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.TORSO)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.TORSO, severity) } ?: emptyList())
+                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.TORSO)?.addAll(map[WoundLocation.TORSO]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.TORSO, severity) } ?: emptyList())
+                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.ARMS)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.ARMS, severity) } ?: emptyList())
+                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.ARMS)?.addAll(map[WoundLocation.ARMS]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.ARMS, severity) } ?: emptyList())
+                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.LEGS)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.LEGS, severity) } ?: emptyList())
+                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.LEGS)?.addAll(map[WoundLocation.LEGS]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.LEGS, severity) } ?: emptyList())
             }
         }
     }
@@ -43,12 +44,12 @@ class Wounds
         for (i in 1..m)
         {
             val woundRoll = Random.nextInt(1, 5)
-            processedWoundCatalogue[type]?.get(WoundSeverity.MODERATE)?.get(location ?: WoundLocation.roll())?.toList()?.let { woundEffects.add(it[woundRoll]) }
+            processedWoundCatalogue[type]?.get(WoundSeverity.MODERATE)?.get(location ?: WoundLocation.roll())?.toList()?.let { woundEffects.add(it[woundRoll - 1]) }
         }
         for (i in 1..l)
         {
             val woundRoll = Random.nextInt(1, 5)
-            processedWoundCatalogue[type]?.get(WoundSeverity.LESSER)?.get(location ?: WoundLocation.roll())?.toList()?.let { woundEffects.add(it[woundRoll]) }
+            processedWoundCatalogue[type]?.get(WoundSeverity.LESSER)?.get(location ?: WoundLocation.roll())?.toList()?.let { woundEffects.add(it[woundRoll - 1]) }
         }
         return woundEffects
     }
@@ -68,31 +69,31 @@ enum class WoundSeverity
 }
 
 @Serializable
-enum class WoundType
+enum class WoundType(val color: Color)
 {
     @SerialName("Cut")
-    CUT,
+    CUT(Color(153, 0, 0)),
 
     @SerialName("Bash")
-    BASH,
+    BASH(Color(11, 83, 148)),
 
     @SerialName("Pierce")
-    PIERCE,
+    PIERCE(Color(180, 95, 6)),
 
     @SerialName("Rend")
-    REND,
+    REND(Color(53, 28, 117)),
 
     @SerialName("Burn")
-    BURN,
+    BURN(Color(56, 118, 29)),
 
     @SerialName("Freeze")
-    FREEZE,
+    FREEZE(Color(17, 85, 204)),
 
     @SerialName("Shock")
-    SHOCK,
+    SHOCK(Color(191, 144, 0)),
 
     @SerialName("Poison")
-    POISON;
+    POISON(Color(182, 215, 168));
 }
 
 @Serializable
@@ -153,4 +154,4 @@ enum class WoundLocation
     }
 }
 
-data class WoundEffect(val name: String, val description: String)
+data class WoundEffect(val name: String, val description: String, val location: WoundLocation, val severity: WoundSeverity)

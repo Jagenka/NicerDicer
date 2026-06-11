@@ -32,10 +32,10 @@
         "Tear": "The next attack vs the Subject gets +1d20 to hit."
       },
       "Arm": {
-        "Lacerated": "Arm Disabled & Disarmed"
+        "Lacerated": "Arm **Disabled** & **Disarmed**"
       },
       "Legs": {
-        "Hamstrung": "Leg Disabled."
+        "Hamstrung": "Leg **Disabled**."
       }
     },
     "Critical": {
@@ -56,30 +56,30 @@
   "Bash": {
     "Lesser": {
       "Any": {
-        "Smashed": "Knocked Down. Wound __fades__ at the end of your next turn.",
-        "Bashed": "Staggered. You are knocked back 2 squares.",
+        "Smashed": "**Knocked Down**. Wound __fades__ at the end of your next turn.",
+        "Bashed": "**Staggered**. You are knocked back 2 squares.",
         "Crushed": "Inflicts an additional Lesser wound. This additional wound __fades__ at the end of your next turn."
       },
       "Head": {
-        "Dazed": "Confused for one round."
+        "Dazed": "**Confused** for one round."
       },
       "Torso": {
         "Winded": "Movement is halved, rounding down, until the end of your next turn."
       },
       "Arm": {
-        "Disarmed": "Disarmed."
+        "Disarmed": "**Disarmed**."
       },
       "Legs": {
-        "Tripped": "Knocked Down. Wound __fades__ at the end of your next turn."
+        "Tripped": "**Knocked Down**. Wound __fades__ at the end of your next turn."
       }
     },
     "Moderate": {
       "Any": {
         "Demolished": "Suffer both type-specific consequences for the part (Arm would be Fracture Arm + Sent Flying).",
-        "Walloped": "Staggered and Knocked Down. You are knocked back 2 squares."
+        "Walloped": "**Staggered** and **Knocked Down**. You are knocked back 2 squares."
       },
       "Head": {
-        "Skull Crack": "Confused until the end of the fight.",
+        "Skull Crack": "**Confused** until the end of the fight.",
         "K.O.": "Make a DC15 Guts check. On failure, after the initial conc check (if any), all remaining Lesser wound slots are filled with wounds, and you must pass another conc check. These additional wounds fade at the end of your next turn."
       },
       "Torso": {
@@ -87,12 +87,12 @@
         "Internally Injured": "You take +1mE on all Alpha Strikes that hit you for the rest of the fight."
       },
       "Arm": {
-        "Fracture Arm": "Arm disabled.",
-        "Sent Flying": "Staggered and knocked aside 1 square to the left or right. You must make a DC12 Athletics check or suffer Knocked Down."
+        "Fracture Arm": "Arm **Disabled**.",
+        "Sent Flying": "**Staggered** and knocked aside 1 square to the left or right. You must make a DC12 Athletics check or suffer **Knocked Down**."
       },
       "Legs": {
-        "Fracture Leg": "Leg disabled.",
-        "Sent Flying": "Staggered and knocked aside 1 square to the left or right. You must make a DC12 Athletics check or suffer Knocked Down."
+        "Fracture Leg": "Leg **Disabled**.",
+        "Sent Flying": "**Staggered** and knocked aside 1 square to the left or right. You must make a DC12 Athletics check or suffer **Knocked Down**."
       }
     },
     "Critical": {
@@ -115,7 +115,7 @@
       "Any": {
         "Pricked": "This wound __fades__ at the end of your next turn.",
         "Pierced": "No effect.",
-        "Stuck": "Limb Disabled. May be cleared with a partial action."
+        "Stuck": "Limb **Disabled**. May be cleared with a partial action."
       },
       "Head": {
         "Blinded": "**Blinded**. Requires a partial action to clear."
@@ -124,10 +124,10 @@
         "Gouge": "Inflicts an additional Moderate wound if the lowest hit roll was at least 4 higher than the defense roll."
       },
       "Arm": {
-        "Pinned": "Arm Disabled. May be cleared with a partial action."
+        "Pinned": "Arm **Disabled**. May be cleared with a partial action."
       },
       "Legs": {
-        "Pinned": "Leg Disabled. May be cleared with a partial action."
+        "Pinned": "Leg **Disabled**. May be cleared with a partial action."
       }
     },
     "Moderate": {
@@ -143,10 +143,10 @@
         "Hit Vitals": "-1 to All Rolls for the rest of the Fight."
       },
       "Arm": {
-        "Debilitated": "Arm Disabled, **Pain**. If all arms are already disabled, all future arm disable checks suffer a -3 penalty."
+        "Debilitated": "Arm **Disabled**, **Pain**. If all arms are already disabled, all future arm disable checks suffer a -3 penalty."
       },
       "Legs": {
-        "Debilitated": "Leg Disabled, **Pain**. If all legs are already disabled, all future leg disable checks suffer a -3 penalty."
+        "Debilitated": "Leg **Disabled**, **Pain**. If all legs are already disabled, all future leg disable checks suffer a -3 penalty."
       }
     },
     "Critical": {
@@ -157,17 +157,17 @@
         "Heartshot": "Death sentence, all stats except Guts set to 0."
       },
       "Arm": {
-        "Limb Pierced": "Limb disabled, **Pain**, **Scars**."
+        "Limb Pierced": "Limb **Disabled**, **Pain**, **Scars**."
       },
       "Legs": {
-        "Limb Pierced": "Limb disabled, **Pain**, **Scars**."
+        "Limb Pierced": "Limb **Disabled**, **Pain**, **Scars**."
       }
     }
   },
   "Rend": {
     "Lesser": {
       "Any": {
-        "Torn": "Suffer -1 to hit per stack. Ripped.",
+        "Torn": "Suffer -1 to hit per stack. **Ripped**.",
         "Twisted": "No effect.",
         "Ruined": "Inflicts an additional Lesser wound."
       },
@@ -178,29 +178,34 @@
         "Savaged": "**Bleed**. Requires a partial action to clear."
       },
       "Arm": {
-        "Scourged": "Arm Disabled."
+        "Scourged": "Arm **Disabled**."
       },
       "Legs": {
-        "Scourged": "Leg Disabled."
+        "Scourged": "Leg **Disabled**."
       }
     },
     "Moderate": {
       "Any": {
         "Destroyed": "Destroys 2 random costume qualities.",
         "Mutilated": "**Pain**.",
-        "Mangled": "-2 to conc checks, if you are already Mangled, increase this penalty by 1 per stack. Ripped."
+        "Mangled": "-2 to conc checks, if you are already Mangled, increase this penalty by 1 per stack. **Ripped**."
       },
       "Head": {
-        "Disfigured": "Blind and Confused. If you are already Blind/Confused, all future Blind/Confused saves suffer a -1 penalty per stack. Ripped."
+        "Disfigured": "Blind and **Confused**. If you are already Blind/Confused, all future Blind/Confused saves suffer a -1 penalty per stack. **Ripped**."
       },
       "Torso": {
-        "Hemorrhage": "**Bleed**. This Bleed stacks with other Bleed effects, with the typeless lessers stacking into typeless moderates. Ripped."
+        "Hemorrhage": "**Bleed**. This Bleed stacks with other Bleed effects, with the typeless lessers stacking into typeless moderates. **Ripped**."
       },
       "Arm": {
-        "Ripped Muscle": "Arm Disabled. If all arms are already disabled, all future arm disable checks suffer a -2 penalty."
+        "Ripped Muscle": "Arm **Disabled**. If all arms are already disabled, all future arm disable checks suffer a -2 penalty."
       },
       "Legs": {
-        "Ripped Heel": "Leg Disabled. If all legs are already disabled, all future leg disable checks suffer a -2 penalty."
+        "Ripped Heel": "Leg **Disabled**. If all legs are already disabled, all future leg disable checks suffer a -2 penalty."
+      }
+    },
+    "Critical": {
+      "Any": {
+        "Annihilated": "Critical wound, then flip coins until you get a tails. Inflict a moderate rend effect for every coin flip."
       }
     }
   },
@@ -217,7 +222,7 @@
       "Any": {
         "Blackened": "Destroys two random costume qualities.",
         "Scalded": "Counts as a Lesser wound if you have the Coverage costume quality. Otherwise, suffer 1lE burn and 1mE rend.",
-        "Screaming": "Make a DC 12 Guts check. On failure, you can perform no actions on your next turn, become Knocked Down, suffer **Pain** for 2 rounds, and may freely extinguish the Oh God It Burns wound effect. If OGIB is extinguished this way, suffer a typeless Moderate wound.",
+        "Screaming": "Make a DC 12 Guts check. On failure, you can perform no actions on your next turn, become **Knocked Down**, suffer **Pain** for 2 rounds, and may freely extinguish the Oh God It Burns wound effect. If OGIB is extinguished this way, suffer a typeless Moderate wound.",
         "Oh God It Burns": "You catch fire. Inflicts a Moderate typeless wound at the end of each of your following turns until extinguished, or a Lesser if you have burn protection. Suffer **Pain** while burning. Requires a full round action to extinguish."
       }
     },
@@ -249,10 +254,15 @@
         "Hypothermia": "You take +1m on all Alpha Strikes that hit you for 1 round. Make a DC 14 Guts Save. On a fail, you can perform no actions on your next turn."
       },
       "Arm": {
-        "Frostbitten": "Arm Disabled. If all your arms are already disabled, take an additional Lesser wound."
+        "Frostbitten": "Arm **Disabled**. If all your arms are already disabled, take an additional Lesser wound."
       },
       "Legs": {
-        "Shivering": "Leg Disabled, **Pain**."
+        "Shivering": "Leg **Disabled**, **Pain**."
+      }
+    },
+    "Critical": {
+      "Any": {
+        "Whited Out": "Critical wound, then flip coins until you get a tails. Inflict a moderate freeze effect for every coin flip."
       }
     }
   },
@@ -260,8 +270,8 @@
     "Lesser": {
       "Any": {
         "Disoriented": "Wits check are rolled at -2 until the end of your next turn. If recently shocked, become **Blinded** for one round.",
-        "Zapped": "Confused for one round. Duration extends to three rounds if recently shocked.",
-        "Thrown": "Knocked back 1 square, Staggered. If recently shocked, also Knocked Down.",
+        "Zapped": "**Confused** for one round. Duration extends to three rounds if recently shocked.",
+        "Thrown": "Knocked back 1 square, **Staggered**. If recently shocked, also **Knocked Down**.",
         "Jolted": "**Pain** for one round. Duration extends to two rounds if recently shocked."
       }
     },
@@ -269,13 +279,37 @@
       "Any": {
         "Blitzed": "You lose a partial action on your next turn. If recently shocked, you lose a standard action instead.",
         "Paralyzed": "Choose two penalties and suffer those for a round: -2 to hit, -2 to defend, base movement halved. If recently shocked, you suffer all three.",
-        "Scattered": "Disarmed. If recently shocked, you risk being shocked again when you retrieve dropped items for one round. Roll a DC16 Guts check if you do so. Suffer 1l shock if you fail.",
-        "Devastated": "Inflicts an additional Lesser wound. If recently shocked, you also become Knocked Down, and suffer a random Lesser physical effect."
+        "Scattered": "**Disarmed**. If recently shocked, you risk being shocked again when you retrieve dropped items for one round. Roll a DC16 Guts check if you do so. Suffer 1l shock if you fail.",
+        "Devastated": "Inflicts an additional Lesser wound. If recently shocked, you also become **Knocked Down**, and suffer a random Lesser physical effect."
+      }
+    },
+    "Critical": {
+      "Any": {
+        "Disintegrated": "Critical wound, then flip coins until you get a tails. Inflict a moderate shock effect for every coin flip."
       }
     }
   },
   "Poison": {
     "Lesser": {
+      "Any": {
+        "Incubating": "Roll an additional 1lE Poison at the end of your next turn.",
+        "Recuperating": "No effect.",
+        "Queasy": "Suffer -1 to all conc checks until the end of your next turn."
+      },
+      "Head": {
+        "Cross-Eyed": "**Blinded**. Requires a partial action to clear."
+      },
+      "Torso": {
+        "Rot": "Take an additional 1l typeless."
+      },
+      "Arm": {
+        "Sickened": "Make a DC 14 Guts check. On a failure, you are **Disarmed**."
+      },
+      "Legs": {
+        "Nauseated": "Make a DC 14 Guts check. On a failure, you are **Staggered**."
+      }
+    },
+    "Moderate": {
       "Any": {
         "Blighted": "Suffer -1 to conc rolls until the end of your next turn. Roll 1lE Poison at the end of your next turn.",
         "Envenomed": "Suffer -1 to defend until the end of your next turn. Roll 1mE Poison at the end of your next turn.",
@@ -294,7 +328,7 @@
         "Unsteady": "Movement is halved, rounding down, until the end of your next turn. Roll 1mE poison at the end of your next turn."
       }
     },
-    "Moderate": {
+    "Critical": {
       "Head": {
         "Toxic Shock": "Critical wound, then flip coins until you get tails. Inflict a moderate poison effect for every coin flip."
       },

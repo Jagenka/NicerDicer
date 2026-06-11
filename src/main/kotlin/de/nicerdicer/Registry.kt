@@ -1,7 +1,10 @@
 package de.nicerdicer
 
+import de.nicerdicer.functions.AugmentFunction
 import de.nicerdicer.functions.CardFunction
+import de.nicerdicer.functions.FlawFunction
 import de.nicerdicer.functions.FunctionBase
+import de.nicerdicer.functions.PerkFunction
 import de.nicerdicer.functions.RollFunction
 import de.nicerdicer.functions.ShutdownFunction
 import de.nicerdicer.functions.WoundFunction
@@ -14,7 +17,10 @@ object Registry
         RollFunction,
         ShutdownFunction,
         CardFunction,
-        WoundFunction
+        WoundFunction,
+        PerkFunction,
+        FlawFunction,
+        AugmentFunction
     )
 
     val commandMap = mutableMapOf<String, FunctionBase>()

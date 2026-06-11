@@ -4,9 +4,12 @@ import de.nicerdicer.util.WoundLocation
 import de.nicerdicer.util.WoundType
 import de.nicerdicer.util.Wounds
 import dev.kord.core.Kord
+import dev.kord.core.behavior.interaction.respondPublic
+import dev.kord.core.behavior.interaction.response.createPublicFollowup
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.string
+import dev.kord.rest.builder.message.EmbedBuilder
 
 object WoundFunction : FunctionBase("wounds", "Everything concerning Wounds.")
 {
@@ -21,9 +24,17 @@ object WoundFunction : FunctionBase("wounds", "Everything concerning Wounds.")
             }
             string("type", "e.g. bash") {
                 required = true
+                for (type in WoundType.entries)
+                {
+                    choice(type.name.lowercase().replaceFirstChar { it.uppercase() }, type.name)
+                }
             }
             string("location", "e.g. head, default is random") {
                 required = false
+                for (location in WoundLocation.entries)
+                {
+                    choice(location.name.lowercase().replaceFirstChar { it.uppercase() }, location.name)
+                }
             }
         }
     }
@@ -32,7 +43,9 @@ object WoundFunction : FunctionBase("wounds", "Everything concerning Wounds.")
     {
         val response = event.interaction.deferPublicResponse()
         val amountString = event.interaction.command.strings["amount"]!!
-        var c = 0; var m = 0; var l = 0
+        var c = 0;
+        var m = 0;
+        var l = 0
         severityPattern.findAll(amountString).forEach { matchResult ->
             val woundAmount = matchResult.value.dropLast(1).toInt()
             when (matchResult.value.last())
@@ -43,14 +56,66 @@ object WoundFunction : FunctionBase("wounds", "Everything concerning Wounds.")
             }
         }
 
-        val type = WoundType.valueOf(event.interaction.command.strings["type"]!!.uppercase())
-        val location = event.interaction.command.strings["location"]?.uppercase()?.let { WoundLocation.valueOf(it) }
+        val typeString = event.interaction.command.strings["type"]!!.uppercase()
+        if (!WoundType.entries.map { wound -> wound.name }.contains(typeString))
+        {
+            response.respond {
+                content = "Wound type $typeString not found."
+            }
+            return
+        }
+        val type = WoundType.valueOf(typeString)
+
+        val locationString = event.interaction.command.strings["location"]?.uppercase()
+        var invalidLocation = false
+        val location = locationString?.let {
+            if (WoundLocation.entries.map { location -> location.name }.contains(locationString)) WoundLocation.valueOf(it)
+            else
+            {
+                invalidLocation = true
+                null
+            }
+        }
 
         val wounds = wounds.roll(c, m, l, type, location)
+        val embedBuilders = mutableListOf<EmbedBuilder>()
 
-        // TODO: do this with embeds
-        response.respond {
-            content = "Rolled wounds: $wounds"
+        for (wound in wounds)
+        {
+            val newEmbed = EmbedBuilder()
+            val footer = EmbedBuilder.Footer()
+            footer.text = "Location: ${wound.location.toString().lowercase().replaceFirstChar { it.uppercase() }} - Severity: ${
+                wound.severity.toString().lowercase().replaceFirstChar { it.uppercase() }
+            }"
+
+            newEmbed.title = wound.name
+            newEmbed.description = wound.description
+            newEmbed.color = type.color
+            newEmbed.footer = footer
+
+            embedBuilders.add(newEmbed)
+        }
+
+        val embedBatches = mutableListOf<MutableList<EmbedBuilder>>()
+        while (embedBuilders.isNotEmpty())
+        {
+            val batch = mutableListOf<EmbedBuilder>()
+            while (embedBuilders.isNotEmpty() && batch.size < 10) batch.add(embedBuilders.removeFirst())
+            embedBatches.add(batch)
+        }
+
+        val returnedResponse = response.respond {
+            content =
+                "${if (invalidLocation) "Location was invalid! " else ""}Rolling for ${if (c > 0) "${c}c" else ""}${if (m > 0) "${m}m" else ""}${if (l > 0) "${l}l" else ""} ${
+                    type.toString().lowercase().replaceFirstChar { it.uppercase() }
+                } to ${location?.toString()?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Anywhere"}!"
+            embeds = embedBatches.removeFirst()
+        }
+        while (embedBatches.isNotEmpty())
+        {
+            returnedResponse.createPublicFollowup {
+                embeds = embedBatches.removeFirst()
+            }
         }
     }
 }
