@@ -183,7 +183,7 @@ object CardFunction : FunctionBase("cards", "Represents a deck of cards.")
 
                 for (index in indexesToDestroy)
                 {
-                    hand.removeCardAt(index)?.let { removedCard -> removedCards.add(removedCard) }
+                    hand.removeCardAt(index - 1)?.let { removedCard -> removedCards.add(removedCard) }
                 }
 
                 response.respond {

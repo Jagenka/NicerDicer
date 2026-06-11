@@ -1,0 +1,312 @@
+{
+  "Cut": {
+    "Lesser": {
+      "Any": {
+        "Bleed": "**Bleed**. Requires a full-round action to clear.",
+        "Slashed": "**Scars**.",
+        "Gashed": "Inflicts an additional Lesser wound. This additional wound __fades__ at the end of your next turn."
+      },
+      "Head": {
+        "Blinded": "**Blinded**. Requires a partial action to clear."
+      },
+      "Torso": {
+        "Raked": "Inflicts an additional Lesser wound. This additional wound __fades__ at the end of your next turn."
+      },
+      "Arm": {
+        "Hindered": "**Pain**."
+      },
+      "Legs": {
+        "Hobbled": "**Pain**."
+      }
+    },
+    "Moderate": {
+      "Any": {
+        "Hacked": "If you have suffered wounds prior to this attack, the attacker rolls a DC14 Attacking Save. If successful, inflicts an additional Moderate wound.",
+        "Butchered": "Inflicts an additional Lesser wound. **Scars**.",
+        "Flayed": "Remove one instance of the Armour quality from the target's costume. If there is no armour to destroy, you suffer **Bleed** and **Pain**."
+      },
+      "Head": {
+        "Slice and Dice": "Subject provokes an attack of opportunity from assailant at -1 to hit."
+      },
+      "Torso": {
+        "Tear": "The next attack vs the Subject gets +1d20 to hit."
+      },
+      "Arm": {
+        "Lacerated": "Arm Disabled & Disarmed"
+      },
+      "Legs": {
+        "Hamstrung": "Leg Disabled."
+      }
+    },
+    "Critical": {
+      "Head": {
+        "Decapitation": "Death"
+      },
+      "Torso": {
+        "Bisection": "Counts as one Critical wound, and a number of Moderate wounds equal to the difference in the attack roll and the defence roll. Critical rolls count as 20 (plus modifier)."
+      },
+      "Arm": {
+        "Dismembered": "Loss of arm."
+      },
+      "Legs": {
+        "Dismembered": "Loss of leg."
+      }
+    }
+  },
+  "Bash": {
+    "Lesser": {
+      "Any": {
+        "Smashed": "Knocked Down. Wound __fades__ at the end of your next turn.",
+        "Bashed": "Staggered. You are knocked back 2 squares.",
+        "Crushed": "Inflicts an additional Lesser wound. This additional wound __fades__ at the end of your next turn."
+      },
+      "Head": {
+        "Dazed": "Confused for one round."
+      },
+      "Torso": {
+        "Winded": "Movement is halved, rounding down, until the end of your next turn."
+      },
+      "Arm": {
+        "Disarmed": "Disarmed."
+      },
+      "Legs": {
+        "Tripped": "Knocked Down. Wound __fades__ at the end of your next turn."
+      }
+    },
+    "Moderate": {
+      "Any": {
+        "Demolished": "Suffer both type-specific consequences for the part (Arm would be Fracture Arm + Sent Flying).",
+        "Walloped": "Staggered and Knocked Down. You are knocked back 2 squares."
+      },
+      "Head": {
+        "Skull Crack": "Confused until the end of the fight.",
+        "K.O.": "Make a DC15 Guts check. On failure, after the initial conc check (if any), all remaining Lesser wound slots are filled with wounds, and you must pass another conc check. These additional wounds fade at the end of your next turn."
+      },
+      "Torso": {
+        "Broken Rib": "**Pain**.",
+        "Internally Injured": "You take +1mE on all Alpha Strikes that hit you for the rest of the fight."
+      },
+      "Arm": {
+        "Fracture Arm": "Arm disabled.",
+        "Sent Flying": "Staggered and knocked aside 1 square to the left or right. You must make a DC12 Athletics check or suffer Knocked Down."
+      },
+      "Legs": {
+        "Fracture Leg": "Leg disabled.",
+        "Sent Flying": "Staggered and knocked aside 1 square to the left or right. You must make a DC12 Athletics check or suffer Knocked Down."
+      }
+    },
+    "Critical": {
+      "Head": {
+        "Brained": "Target’s head cracked open. Wits, Social & Know set to 0, can’t act of own volition, Death Sentence status."
+      },
+      "Torso": {
+        "Caved in": "Chest crushed or spine broken. Athletics, Brawn, Dex set to 0. Can think/act/communicate in a limited way, but can’t move. Death Sentence status."
+      },
+      "Arm": {
+        "Pulverized": "Limb is pulverized and pinned/mashed to ground. Can’t move without losing hope of recovering limb."
+      },
+      "Legs": {
+        "Pulverized": "Limb is pulverized and pinned/mashed to ground. Can’t move without losing hope of recovering limb."
+      }
+    }
+  },
+  "Pierce": {
+    "Lesser": {
+      "Any": {
+        "Pricked": "This wound __fades__ at the end of your next turn.",
+        "Pierced": "No effect.",
+        "Stuck": "Limb Disabled. May be cleared with a partial action."
+      },
+      "Head": {
+        "Blinded": "**Blinded**. Requires a partial action to clear."
+      },
+      "Torso": {
+        "Gouge": "Inflicts an additional Moderate wound if the lowest hit roll was at least 4 higher than the defense roll."
+      },
+      "Arm": {
+        "Pinned": "Arm Disabled. May be cleared with a partial action."
+      },
+      "Legs": {
+        "Pinned": "Leg Disabled. May be cleared with a partial action."
+      }
+    },
+    "Moderate": {
+      "Any": {
+        "Graze": "**Bleed**. Requires a partial action to clear.",
+        "Missed Vitals": "**Pain**.",
+        "Through and through": "Inflicts an additional Moderate wound."
+      },
+      "Head": {
+        "Hit Head": "**Blinded**, partial action to clear. Attacker rolls a d2. On a 1, take 3m Typeless. Helm or Pierce Protection costume qualities increase the d2 by one each, up to d4."
+      },
+      "Torso": {
+        "Hit Vitals": "-1 to All Rolls for the rest of the Fight."
+      },
+      "Arm": {
+        "Debilitated": "Arm Disabled, **Pain**. If all arms are already disabled, all future arm disable checks suffer a -3 penalty."
+      },
+      "Legs": {
+        "Debilitated": "Leg Disabled, **Pain**. If all legs are already disabled, all future leg disable checks suffer a -3 penalty."
+      }
+    },
+    "Critical": {
+      "Head": {
+        "Headshot": "Death, cannot be saved."
+      },
+      "Torso": {
+        "Heartshot": "Death sentence, all stats except Guts set to 0."
+      },
+      "Arm": {
+        "Limb Pierced": "Limb disabled, **Pain**, **Scars**."
+      },
+      "Legs": {
+        "Limb Pierced": "Limb disabled, **Pain**, **Scars**."
+      }
+    }
+  },
+  "Rend": {
+    "Lesser": {
+      "Any": {
+        "Torn": "Suffer -1 to hit per stack. Ripped.",
+        "Twisted": "No effect.",
+        "Ruined": "Inflicts an additional Lesser wound."
+      },
+      "Head": {
+        "Defaced": "Blind. Requires a partial action to clear."
+      },
+      "Torso": {
+        "Savaged": "**Bleed**. Requires a partial action to clear."
+      },
+      "Arm": {
+        "Scourged": "Arm Disabled."
+      },
+      "Legs": {
+        "Scourged": "Leg Disabled."
+      }
+    },
+    "Moderate": {
+      "Any": {
+        "Destroyed": "Destroys 2 random costume qualities.",
+        "Mutilated": "**Pain**.",
+        "Mangled": "-2 to conc checks, if you are already Mangled, increase this penalty by 1 per stack. Ripped."
+      },
+      "Head": {
+        "Disfigured": "Blind and Confused. If you are already Blind/Confused, all future Blind/Confused saves suffer a -1 penalty per stack. Ripped."
+      },
+      "Torso": {
+        "Hemorrhage": "**Bleed**. This Bleed stacks with other Bleed effects, with the typeless lessers stacking into typeless moderates. Ripped."
+      },
+      "Arm": {
+        "Ripped Muscle": "Arm Disabled. If all arms are already disabled, all future arm disable checks suffer a -2 penalty."
+      },
+      "Legs": {
+        "Ripped Heel": "Leg Disabled. If all legs are already disabled, all future leg disable checks suffer a -2 penalty."
+      }
+    }
+  },
+  "Burn": {
+    "Lesser": {
+      "Any": {
+        "Smouldering": "Deals no damage if you have the Coverage costume quality. Otherwise, it counts as a Lesser wound.",
+        "Singed": "Deals no damage if you have the Coverage costume quality. Otherwise, it counts as a Lesser wound.",
+        "Blistered": "Inflicts an additional Lesser typeless wound if you do not have the Coverage costume quality.",
+        "Branded": "**Scars**. Inflicts an additional Lesser wound if you do not have the Coverage costume quality."
+      }
+    },
+    "Moderate": {
+      "Any": {
+        "Blackened": "Destroys two random costume qualities.",
+        "Scalded": "Counts as a Lesser wound if you have the Coverage costume quality. Otherwise, suffer 1lE burn and 1mE rend.",
+        "Screaming": "Make a DC 12 Guts check. On failure, you can perform no actions on your next turn, become Knocked Down, suffer **Pain** for 2 rounds, and may freely extinguish the Oh God It Burns wound effect. If OGIB is extinguished this way, suffer a typeless Moderate wound.",
+        "Oh God It Burns": "You catch fire. Inflicts a Moderate typeless wound at the end of each of your following turns until extinguished, or a Lesser if you have burn protection. Suffer **Pain** while burning. Requires a full round action to extinguish."
+      }
+    },
+    "Critical": {
+      "Any": {
+        "Cremated": "Critical wound, then flip coins until you get a tails. Inflict a moderate burn effect for every coin flip."
+      }
+    }
+  },
+  "Freeze": {
+    "Lesser": {
+      "Any": {
+        "Chilled": "This wound __fades__ at the end of your next turn.",
+        "Iced Over": "Take +1lE Freeze on the next Alpha Strike that hits you.",
+        "Frosted": "Your next contested roll using a physical stat suffers a -3 penalty.",
+        "Nipped": "No effect."
+      }
+    },
+    "Moderate": {
+      "Any": {
+        "Frozen": "Take +1l on the next Alpha Strike that hits you. Your Movement is halved until the end of your next turn.",
+        "Freezer Burn": "The attacker makes a DC14 Attacking Save. If successful, inflicts 1mE Burn 1mE Rend.",
+        "Thin Ice": "Suffer 2lE Freeze."
+      },
+      "Head": {
+        "Brain Freeze": "You may only take partial actions on your next turn."
+      },
+      "Torso": {
+        "Hypothermia": "You take +1m on all Alpha Strikes that hit you for 1 round. Make a DC 14 Guts Save. On a fail, you can perform no actions on your next turn."
+      },
+      "Arm": {
+        "Frostbitten": "Arm Disabled. If all your arms are already disabled, take an additional Lesser wound."
+      },
+      "Legs": {
+        "Shivering": "Leg Disabled, **Pain**."
+      }
+    }
+  },
+  "Shock": {
+    "Lesser": {
+      "Any": {
+        "Disoriented": "Wits check are rolled at -2 until the end of your next turn. If recently shocked, become **Blinded** for one round.",
+        "Zapped": "Confused for one round. Duration extends to three rounds if recently shocked.",
+        "Thrown": "Knocked back 1 square, Staggered. If recently shocked, also Knocked Down.",
+        "Jolted": "**Pain** for one round. Duration extends to two rounds if recently shocked."
+      }
+    },
+    "Moderate": {
+      "Any": {
+        "Blitzed": "You lose a partial action on your next turn. If recently shocked, you lose a standard action instead.",
+        "Paralyzed": "Choose two penalties and suffer those for a round: -2 to hit, -2 to defend, base movement halved. If recently shocked, you suffer all three.",
+        "Scattered": "Disarmed. If recently shocked, you risk being shocked again when you retrieve dropped items for one round. Roll a DC16 Guts check if you do so. Suffer 1l shock if you fail.",
+        "Devastated": "Inflicts an additional Lesser wound. If recently shocked, you also become Knocked Down, and suffer a random Lesser physical effect."
+      }
+    }
+  },
+  "Poison": {
+    "Lesser": {
+      "Any": {
+        "Blighted": "Suffer -1 to conc rolls until the end of your next turn. Roll 1lE Poison at the end of your next turn.",
+        "Envenomed": "Suffer -1 to defend until the end of your next turn. Roll 1mE Poison at the end of your next turn.",
+        "Recuperating": "No Effect."
+      },
+      "Head": {
+        "Vitiated": "Take an additional 1m typeless to tracks. Suffer 1lE Poison at the end of your next turn."
+      },
+      "Torso": {
+        "Retching": "Make a DC 14 Guts save or suffer -1 die to all skill rolls until the end of your next turn."
+      },
+      "Arm": {
+        "Trembling": "Suffer -1 to hit until the end of your next turn. Roll 1mE Poison at the end of your next turn."
+      },
+      "Legs": {
+        "Unsteady": "Movement is halved, rounding down, until the end of your next turn. Roll 1mE poison at the end of your next turn."
+      }
+    },
+    "Moderate": {
+      "Head": {
+        "Toxic Shock": "Critical wound, then flip coins until you get tails. Inflict a moderate poison effect for every coin flip."
+      },
+      "Torso": {
+        "Necrotizing": "Roll conc at a -5 penalty. On a failure, you are Death Sentenced. On a success, roll 3mE shock at the end of your next turn."
+      },
+      "Arm": {
+        "Spreading": "Your arm is rendered unusable. Roll 1cE Poison at the end of your next turn."
+      },
+      "Legs": {
+        "Spreading": "Your leg is rendered unusable. Roll 1cE Poison at the end of your next turn."
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@ import de.nicerdicer.functions.CardFunction
 import de.nicerdicer.functions.FunctionBase
 import de.nicerdicer.functions.RollFunction
 import de.nicerdicer.functions.ShutdownFunction
+import de.nicerdicer.functions.WoundFunction
 import dev.kord.core.Kord
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 
@@ -12,7 +13,8 @@ object Registry
     val commands = listOf(
         RollFunction,
         ShutdownFunction,
-        CardFunction
+        CardFunction,
+        WoundFunction
     )
 
     val commandMap = mutableMapOf<String, FunctionBase>()
