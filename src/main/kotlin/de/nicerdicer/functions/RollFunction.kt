@@ -22,6 +22,9 @@ object RollFunction : FunctionBase("r", "Rolls the dice!") {
                     choice(diceType.name, diceType.name)
                 }
             }
+            string("note", "e.g. Attack! or DC14 Guts Save") {
+                required = false
+            }
         }
     }
 
@@ -61,6 +64,10 @@ object RollFunction : FunctionBase("r", "Rolls the dice!") {
         val finalValue = results.max() + modifier.toInt()
         if (hasCrit) sb.append(" ( $operator $modifier) = __**$finalValue**__")
         else sb.append(" ( $operator $modifier) = $finalValue")
+
+        event.interaction.command.strings["dice_type"]?.let {
+            sb.append(": $it")
+        }
 
         response.respond {
             content = sb.toString()
