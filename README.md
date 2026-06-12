@@ -8,5 +8,5 @@ A weaverdice discord bot.
 - [ ] Tag System (You know it, you love it, will copy from issei)
 
 ## Features - Advanced
-- [ ] Initiative / Turn funcitonality (Format: /init or /init +3 for modifiers; /startcombat; /endturn; /endcombat)
+- [x] Initiative / Turn funcitonality (Format: /init or /init +3 for modifiers; /startcombat; /endturn; /endcombat)
 - [x] Draw Cards
