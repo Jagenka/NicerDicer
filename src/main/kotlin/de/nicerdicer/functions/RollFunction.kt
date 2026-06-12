@@ -65,7 +65,7 @@ object RollFunction : FunctionBase("r", "Rolls the dice!") {
         if (hasCrit) sb.append(" ( $operator $modifier) = __**$finalValue**__")
         else sb.append(" ( $operator $modifier) = $finalValue")
 
-        event.interaction.command.strings["dice_type"]?.let {
+        event.interaction.command.strings["note"]?.let {
             sb.append(": $it")
         }
 
