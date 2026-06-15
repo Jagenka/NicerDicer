@@ -1,17 +1,18 @@
 package de.nicerdicer.functions
 
 import de.nicerdicer.util.RollResult
-import de.nicerdicer.util.StringFormatter
-import de.nicerdicer.util.bold
-import de.nicerdicer.util.underscored
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
+import dev.kord.core.behavior.interaction.response.createEphemeralFollowup
+import dev.kord.core.behavior.interaction.response.createPublicFollowup
+import dev.kord.core.behavior.interaction.response.edit
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.entity.User
 import dev.kord.core.entity.channel.Channel
 import dev.kord.core.entity.effectiveName
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.integer
+import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
 
@@ -44,6 +45,14 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
                     autocomplete = true
                 }
             }
+            subCommand("remind", "Reminds you in the given amount of turns of something!") {
+                integer("turns", "In how many turns to remind you.") {
+                    required = true
+                }
+                string("note", "What to remind you of.") {
+                    required = true
+                }
+            }
         }
     }
 
@@ -52,17 +61,15 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
         val channel = event.interaction.getChannel()
         val user = event.interaction.user
 
-        if (!trackedCombats.containsKey(channel)) trackedCombats[channel] = Combat()
-
-        val combat = trackedCombats[channel]!!
+        val combat = trackedCombats.getOrPut(channel) { Combat() }
         val subCommand = event.interaction.command.data.options.value?.map { it.name } ?: emptyList()
-
-        val response = event.interaction.deferPublicResponse()
 
         when (subCommand.firstOrNull())
         {
             "start" ->
             {
+                val response = event.interaction.deferPublicResponse()
+
                 if (combat.isRunning)
                 {
                     response.respond {
@@ -84,6 +91,8 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
 
             "finish" ->
             {
+                val response = event.interaction.deferPublicResponse()
+
                 if (!combat.isRunning)
                 {
                     response.respond {
@@ -107,6 +116,8 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
 
             "leave" ->
             {
+                val response = event.interaction.deferPublicResponse()
+
                 val removed = combat.initiativeOrder.removeIf { it.user == user }
 
                 if (removed)
@@ -124,6 +135,8 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
 
             "initiative" ->
             {
+                val response = event.interaction.deferPublicResponse()
+
                 if (combat.isRunning)
                 {
                     response.respond {
@@ -159,6 +172,8 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
 
             "end" ->
             {
+                val response = event.interaction.deferPublicResponse()
+
                 if (!combat.isRunning)
                 {
                     response.respond {
@@ -175,19 +190,26 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
                     return
                 }
 
-                if (combat.endTurn())
-                {
-                    response.respond {
-                        content = "Round ${combat.roundTracker}! ${combat.combatantToGo!!.user.mention}'s turn!"
-                    }
+                val responseSb = StringBuilder()
+
+                if (combat.endTurn()) responseSb.append("Round ${combat.roundTracker}! ")
+                responseSb.append("${combat.combatantToGo!!.user.mention}'s turn!")
+
+                val followup = response.respond {
+                    content = responseSb.toString()
                 }
-                else response.respond {
-                    content = "${combat.combatantToGo!!.user.mention}'s turn!"
+
+                combat.checkForReminders(combat.combatantToGo!!.user)?.let {
+                    followup.createPublicFollowup {
+                        content = "Reminders:\n$it"
+                    }
                 }
             }
 
             "down" ->
             {
+                val response = event.interaction.deferPublicResponse()
+
                 if (!combat.isRunning)
                 {
                     response.respond {
@@ -213,6 +235,8 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
 
             "list" ->
             {
+                val response = event.interaction.deferPublicResponse()
+
                 var list = combat.initiativeOrder.map { getMemberName(event.interaction.data.guildId.value, it.user) }
                 if (combat.isRunning) list = combat.combatOrder.map { it.user.effectiveName }
 
@@ -223,18 +247,42 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
 
             "delay" ->
             {
+                val response = event.interaction.deferPublicResponse()
+
                 val targetUser = event.interaction.command.users["user"]!!
 
                 if (!combat.delayAfter(targetUser))
                 {
                     response.respond {
-                        content = "Delay unsuccessful! To delay, you have to delay after someone lower in initiative than you!"
+                        content = "Delay unsuccessful! To delay, combat needs to be started and you have to delay after someone lower in initiative than you!"
                     }
                     return
                 }
 
                 response.respond {
                     content = "${user.mention} now takes their turn after ${targetUser.mention}!\nIt is ${combat.combatantToGo!!.user.mention}'s turn!"
+                }
+            }
+
+            "remind" ->
+            {
+                val response = event.interaction.deferEphemeralResponse()
+
+                if (!combat.isRunning)
+                {
+                    response.respond {
+                        content = "Combat hasn't started yet!"
+                    }
+                    return
+                }
+
+                val turnAmount = event.interaction.command.integers["turns"]!!.toInt()
+                val note = event.interaction.command.strings["note"]!!
+
+                combat.addReminder(turnAmount, user, note)
+
+                response.respond {
+                    content = "Reminding you of '$note' in round ${turnAmount + combat.roundTracker}!"
                 }
             }
         }
@@ -251,13 +299,35 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
     }
 }
 
-class Combat(val combatOrder: MutableList<Combatant> = mutableListOf())
+class Combat(val combatOrder: MutableList<Combatant> = mutableListOf(), val trackedReminders: MutableMap<Int, MutableList<Pair<User, String>>> = mutableMapOf())
 {
     var isRunning = false
     var turnTracker = 0
     var roundTracker = 1
     var combatantToGo: Combatant? = null
     var initiativeOrder: MutableList<Combatant> = mutableListOf()
+
+    /**
+     * Adds a reminder to this combat for the specified user.
+     */
+    fun addReminder(turnDelay: Int, user: User, note: String)
+    {
+        trackedReminders.getOrPut(turnDelay + roundTracker) { mutableListOf() }.add(Pair(user, note))
+    }
+
+    /**
+     * Returns all notes of this user for this round at once.
+     */
+    fun checkForReminders(user: User): String?
+    {
+        val roundNotes = trackedReminders.getOrElse(roundTracker) { return null }
+
+        val userNotes = roundNotes.filter { it.first == user }.ifEmpty { return null }.joinToString("\n") { it.second }
+
+        return userNotes
+    }
+
+    fun resetReminders() = trackedReminders.clear()
 
     fun rollInitiative(user: User, rollResult: RollResult)
     {
@@ -279,6 +349,7 @@ class Combat(val combatOrder: MutableList<Combatant> = mutableListOf())
 
     fun startCombat(): Combatant?
     {
+        resetReminders()
         prepareList()
         if (combatOrder.size <= 1) return null
         isRunning = true
