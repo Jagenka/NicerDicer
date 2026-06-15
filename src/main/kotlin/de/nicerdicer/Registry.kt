@@ -2,6 +2,7 @@ package de.nicerdicer
 
 import de.nicerdicer.functions.AugmentFunction
 import de.nicerdicer.functions.CardFunction
+import de.nicerdicer.functions.ChangeDiceFunction
 import de.nicerdicer.functions.CombatFunction
 import de.nicerdicer.functions.FlawFunction
 import de.nicerdicer.functions.FunctionBase
@@ -24,7 +25,8 @@ object Registry
         FlawFunction,
         AugmentFunction,
         CombatFunction,
-        LegacyRollFunction
+        LegacyRollFunction,
+        ChangeDiceFunction
     )
 
     val commandMap = mutableMapOf<String, FunctionBase>()
