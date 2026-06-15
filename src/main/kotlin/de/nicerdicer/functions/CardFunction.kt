@@ -113,7 +113,7 @@ object CardFunction : FunctionBase("cards", "Represents a deck of cards.")
                     content = "You drew a ${cardsDrawn.first().toLongString()}!"
                 }
                 else response.respond {
-                    content = "You drew a ${cardsDrawn.size} cards: $cardsDrawn"
+                    content = "You drew ${cardsDrawn.size} cards: $cardsDrawn"
                 }
             }
 

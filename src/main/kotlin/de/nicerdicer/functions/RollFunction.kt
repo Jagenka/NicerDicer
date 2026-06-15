@@ -7,7 +7,7 @@ import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.string
 
-object RollFunction : FunctionBase("r", "Rolls the dice!") {
+object RollFunction : FunctionBase("roll", "Rolls the dice!") {
     override suspend fun prepare(kord: Kord) {
         kord.createGlobalChatInputCommand(name, description) {
             integer(name = "roll_amount", "How many dice to throw; e.g. 3") {

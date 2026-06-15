@@ -279,6 +279,7 @@ class Combat(val combatOrder: MutableList<Combatant> = mutableListOf())
         val winners = combatOrder.toList()
         combatOrder.clear()
         initiativeOrder.clear()
+        roundTracker = 1
         return winners
     }
 

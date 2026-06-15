@@ -43,9 +43,10 @@ object WoundFunction : FunctionBase("wounds", "Everything concerning Wounds.")
     {
         val response = event.interaction.deferPublicResponse()
         val amountString = event.interaction.command.strings["amount"]!!
-        var c = 0;
-        var m = 0;
+        var c = 0
+        var m = 0
         var l = 0
+
         severityPattern.findAll(amountString).forEach { matchResult ->
             val woundAmount = matchResult.value.dropLast(1).toInt()
             when (matchResult.value.last())
@@ -54,6 +55,14 @@ object WoundFunction : FunctionBase("wounds", "Everything concerning Wounds.")
                 'm' -> m += woundAmount
                 'l' -> l += woundAmount
             }
+        }
+
+        if (c == 0 && m == 0 && l == 0)
+        {
+            response.respond {
+                content = "You have to specify, how many wounds to roll! e.g. 2m1l"
+            }
+            return
         }
 
         val typeString = event.interaction.command.strings["type"]!!.uppercase()
@@ -69,7 +78,7 @@ object WoundFunction : FunctionBase("wounds", "Everything concerning Wounds.")
         val locationString = event.interaction.command.strings["location"]?.uppercase()
         var invalidLocation = false
         val location = locationString?.let {
-            if (WoundLocation.entries.map { location -> location.name }.contains(locationString)) WoundLocation.valueOf(it)
+            if (WoundLocation.entries.map { location -> location.name }.contains(locationString) && WoundLocation.valueOf(it) != WoundLocation.ANY) WoundLocation.valueOf(it)
             else
             {
                 invalidLocation = true
@@ -109,7 +118,7 @@ object WoundFunction : FunctionBase("wounds", "Everything concerning Wounds.")
                 "${if (invalidLocation) "Location was invalid! " else ""}Rolling for ${if (c > 0) "${c}c" else ""}${if (m > 0) "${m}m" else ""}${if (l > 0) "${l}l" else ""} ${
                     type.toString().lowercase().replaceFirstChar { it.uppercase() }
                 } to ${location?.toString()?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Anywhere"}!"
-            embeds = embedBatches.removeFirst()
+            embeds = if (embedBatches.isNotEmpty()) embedBatches.removeFirst() else null
         }
         while (embedBatches.isNotEmpty())
         {
