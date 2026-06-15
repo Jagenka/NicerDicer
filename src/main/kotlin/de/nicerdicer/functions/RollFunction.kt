@@ -1,6 +1,6 @@
 package de.nicerdicer.functions
 
-import de.nicerdicer.util.DiceType
+import de.nicerdicer.util.RollResult
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
@@ -16,11 +16,15 @@ object RollFunction : FunctionBase("roll", "Rolls the dice!") {
             integer(name = "roll_modifier", "Value to add to the result; e.g. 4 or -3") {
                 required = false
             }
-            string("dice_type", "What type of die to use; e.g. d6") {
+            integer("dice_type", "What type of die to use; e.g. d6") {
                 required = false
-                for (diceType in DiceType.entries) {
-                    choice(diceType.name, diceType.name)
-                }
+                choice("D2", 2)
+                choice("D4", 4)
+                choice("D6", 6)
+                choice("D8", 8)
+                choice("D10", 10)
+                choice("D12", 12)
+                choice("D20", 20)
             }
             string("note", "e.g. Attack! or DC14 Guts Save") {
                 required = false
@@ -30,43 +34,26 @@ object RollFunction : FunctionBase("roll", "Rolls the dice!") {
 
     override suspend fun execute(event: ChatInputCommandInteractionCreateEvent) {
         val response = event.interaction.deferPublicResponse()
-        val diceType = try {
-            event.interaction.command.strings["dice_type"]?.let {
-                DiceType.asDiceType(it)
-            } ?: DiceType.D20
-        } catch (e: IllegalArgumentException) {
-            e.printStackTrace()
+
+        val diceType = event.interaction.command.integers["dice_type"]?.toInt() ?: 20
+        val diceAmount = event.interaction.command.integers["roll_amount"]?.toInt() ?: 3
+        val modifier = event.interaction.command.integers["roll_modifier"]?.toInt() ?: 4
+
+        val results = RollResult(diceType, diceAmount, modifier)
+
+        if (!results.roll())
+        {
             response.respond {
-                content = "Something went wrong"
+                content = "Dice type and amount have to be greater than 0!"
             }
             return
         }
-        val diceAmount = event.interaction.command.integers["roll_amount"] ?: 3
-        val modifier = event.interaction.command.integers["roll_modifier"] ?: 4
-        val results = mutableListOf<Int>()
-
-        for (i in 1..diceAmount) {
-            results.add(diceType.roll())
-        }
 
         val sb = StringBuilder()
-        val operator = if (modifier >= 0) '+' else '-'
-        sb.append("Result from $diceAmount ${diceType.name} $operator $modifier => ")
-        var first = true
-        var hasCrit = false
-        for (result in results) {
-            if (first)  first = false
-            else sb.append(" + ")
-            if (result == results.max()) sb.append("$result")
-            else sb.append("~~$result~~")
-            if (result == diceType.maxRoll()) hasCrit = true
-        }
-        val finalValue = results.max() + modifier.toInt()
-        if (hasCrit) sb.append(" ( $operator $modifier) = __**$finalValue**__")
-        else sb.append(" ( $operator $modifier) = $finalValue")
+        sb.append(results.getRollString())
 
         event.interaction.command.strings["note"]?.let {
-            sb.append(": $it")
+            sb.append("    /// $it")
         }
 
         response.respond {

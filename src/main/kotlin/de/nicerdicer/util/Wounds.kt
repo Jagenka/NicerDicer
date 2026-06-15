@@ -4,7 +4,6 @@ import dev.kord.common.Color
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
-import kotlin.random.Random
 
 class Wounds
 {
@@ -43,12 +42,12 @@ class Wounds
         }
         for (i in 1..m)
         {
-            val woundRoll = Random.nextInt(1, 5)
+            val woundRoll = NicerRandom.random.nextInt(1, 5)
             processedWoundCatalogue[type]?.get(WoundSeverity.MODERATE)?.get(location ?: WoundLocation.roll())?.toList()?.let { woundEffects.add(it[woundRoll - 1]) }
         }
         for (i in 1..l)
         {
-            val woundRoll = Random.nextInt(1, 5)
+            val woundRoll = NicerRandom.random.nextInt(1, 5)
             processedWoundCatalogue[type]?.get(WoundSeverity.LESSER)?.get(location ?: WoundLocation.roll())?.toList()?.let { woundEffects.add(it[woundRoll - 1]) }
         }
         return woundEffects
@@ -118,7 +117,7 @@ enum class WoundLocation
     {
         fun roll(): WoundLocation
         {
-            return when (Random.nextInt(1, 7))
+            return when (NicerRandom.random.nextInt(1, 7))
             {
                 1 ->
                 {

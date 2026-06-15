@@ -1,11 +1,10 @@
 package de.nicerdicer.functions
 
+import de.nicerdicer.util.RollResult
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.string
-import kotlin.math.absoluteValue
-import kotlin.random.Random
 
 object LegacyRollFunction : FunctionBase("r", "Roll function via a string.")
 {
@@ -27,35 +26,18 @@ object LegacyRollFunction : FunctionBase("r", "Roll function via a string.")
         val dieType = Regex("[dD]\\d+").find(rs)?.value?.drop(1)?.toInt() ?: 20
         val modifier = Regex("[+-]\\d+").find(rs)?.value?.toInt() ?: 4
 
-        val dieResults: MutableList<Int> = mutableListOf()
-        var isCrit = false
+        val result = RollResult(dieType, amount, modifier)
 
-        for (i in 1..amount)
+        if (!result.roll())
         {
-            val roll = Random.nextInt(1, dieType + 1)
-            if (roll == dieType) isCrit = true
-            dieResults.add(roll)
+            response.respond {
+                content = "Dice type and amount have to be greater than 0!"
+            }
+            return
         }
-
-        val finalValue = dieResults.maxOrNull()?.let { it + modifier }
 
         val sb = StringBuilder()
-        sb.append("Rolled for $amount D$dieType ")
-        if (modifier >= 0) sb.append("+ $modifier: ")
-        else sb.append("- $modifier: ")
-        var firstResult = true
-        for (roll in dieResults)
-        {
-            if (!firstResult) sb.append(" + ")
-            if (roll == dieResults.max()) sb.append(roll)
-            else sb.append("~~${roll}~~")
-            firstResult = false
-        }
-        if (modifier >= 0) sb.append(" (+ ${modifier.absoluteValue})")
-        else sb.append(" (- ${modifier.absoluteValue})")
-        sb.append(" = ")
-        if (isCrit) sb.append("__**$finalValue**__")
-        else sb.append("$finalValue")
+        sb.append(result.getRollString())
 
         response.respond {
             content = sb.toString()

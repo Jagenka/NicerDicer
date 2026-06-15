@@ -1,9 +1,11 @@
 package de.nicerdicer.functions
 
+import de.nicerdicer.util.RollResult
+import de.nicerdicer.util.StringFormatter
+import de.nicerdicer.util.bold
+import de.nicerdicer.util.underscored
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
-import dev.kord.core.behavior.interaction.respondEphemeral
-import dev.kord.core.behavior.interaction.respondPublic
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.entity.User
 import dev.kord.core.entity.channel.Channel
@@ -12,8 +14,6 @@ import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
-import java.util.LinkedList
-import kotlin.random.Random
 
 object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
 {
@@ -28,8 +28,11 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
             subCommand("finish", "Finish combat!")
             subCommand("leave", "Leave combat.")
             subCommand("initiative", "Rolls init!") {
+                integer("amount", "Amount of dice to roll, important for SW etc.") {
+                    required = false
+                }
                 integer("modifier", "Modifier to add to your initiative roll.") {
-                    required = true
+                    required = false
                 }
             }
             subCommand("end", "Ends your turn.")
@@ -137,11 +140,20 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
                     return
                 }
 
-                val modifier = event.interaction.command.integers["modifier"]!!
-                val rolledInit = combat.rollInitiative(user, modifier.toInt())
+                val amount = event.interaction.command.integers["amount"]?.toInt() ?: 1
+                val modifier = event.interaction.command.integers["modifier"]?.toInt() ?: 4
+
+                val rolls = RollResult(20, amount, modifier)
+
+                combat.rollInitiative(user, rolls)
+
+                val sb = StringBuilder()
+                sb.append("${user.mention} rolled a ")
+                sb.append(rolls.getRollString())
+                sb.append(" for initiative!")
 
                 response.respond {
-                    content = "${user.mention} rolled a $rolledInit for initiative!"
+                    content = sb.toString()
                 }
             }
 
@@ -220,7 +232,8 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
                     }
                     return
                 }
-                else response.respond {
+
+                response.respond {
                     content = "${user.mention} now takes their turn after ${targetUser.mention}!\nIt is ${combat.combatantToGo!!.user.mention}'s turn!"
                 }
             }
@@ -246,16 +259,16 @@ class Combat(val combatOrder: MutableList<Combatant> = mutableListOf())
     var combatantToGo: Combatant? = null
     var initiativeOrder: MutableList<Combatant> = mutableListOf()
 
-    fun rollInitiative(user: User, modifier: Int): Int
+    fun rollInitiative(user: User, rollResult: RollResult)
     {
-        val roll = Random.nextInt(1, 21) + modifier
-        initiativeOrder.add(Combatant(roll, user, modifier))
-        return roll
+        if (!rollResult.roll()) throw IllegalStateException("User ${user.effectiveName} does not have dice to roll!")
+
+        initiativeOrder.add(Combatant(user, rollResult))
     }
 
     fun prepareList()
     {
-        val groupedOrder = initiativeOrder.groupBy { it.trackedInitiative }.toList().sortedByDescending { it.first }.toMutableList()
+        val groupedOrder = initiativeOrder.groupBy { it.rollResult.getResult() }.toList().sortedByDescending { it.first }.toMutableList()
         while (groupedOrder.isNotEmpty())
         {
             val (_, currentCombatants) = groupedOrder.removeFirst()
@@ -332,11 +345,12 @@ class Combat(val combatOrder: MutableList<Combatant> = mutableListOf())
 
         for (combatant in combatants)
         {
-            val roll = Random.nextInt(1, 21) + combatant.modifier
-            newCombatants.add(Combatant(roll, combatant.user, combatant.modifier))
+            if (!combatant.rollResult.roll()) throw IllegalStateException("Combatant ${combatant.user.effectiveName} does not have dice to roll!")
+
+            newCombatants.add(combatant)
         }
 
-        val groupedCombatants = newCombatants.groupBy { it.trackedInitiative }.toList().sortedByDescending { it.first }
+        val groupedCombatants = newCombatants.groupBy { it.rollResult.getResult() }.toList().sortedByDescending { it.first }
         val finalCombatants = mutableListOf<Combatant>()
 
         for (group in groupedCombatants)
@@ -349,4 +363,4 @@ class Combat(val combatOrder: MutableList<Combatant> = mutableListOf())
     }
 }
 
-data class Combatant(val trackedInitiative: Int, val user: User, val modifier: Int)
+data class Combatant(val user: User, val rollResult: RollResult)
