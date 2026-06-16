@@ -31,6 +31,7 @@ replay_pid*
 /.idea/
 /build/
 /gradle/
+/db/nicerdicer.db
 
 # Secrets
 /src/main/resources/token.txt

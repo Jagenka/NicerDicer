@@ -1,7 +1,7 @@
 package de.nicerdicer.functions
 
-import de.nicerdicer.util.CsvParserPerks
-import de.nicerdicer.util.Perk
+import de.nicerdicer.db.Database
+import de.nicerdicer.db.PerkEntry
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
@@ -10,14 +10,19 @@ import dev.kord.rest.builder.message.EmbedBuilder
 
 object PerkFunction : FunctionBase("perk", "Rolls perks.")
 {
-    var perks = emptyList<Perk>()
-    var lifePerks = emptyList<Perk>()
+    // no local caching: fetch from DB in execute()
 
     override suspend fun prepare(kord: Kord)
     {
         println("Preparing perks...")
-        perks = CsvParserPerks().parseCsv("/Perklist - Power Perks.csv")
-        lifePerks = CsvParserPerks().parseCsv("/Perklist - Life Perks.csv")
+        try {
+            Database.init()
+            println("Database initialized for perks.")
+        } catch (e: Exception) {
+            println("Error while preparing perks: ${e.message}")
+            e.printStackTrace()
+        }
+
         kord.createGlobalChatInputCommand(name, description)
         {
             subCommand("power", "Rolls a power perk.")
@@ -33,28 +38,41 @@ object PerkFunction : FunctionBase("perk", "Rolls perks.")
         val footerBuilder = EmbedBuilder.Footer()
         val perkType = event.interaction.command.data.options.value?.map { it.name }?.first()
         var chosenType: String?
-        val rolledPerk: Perk = when (perkType)
-        {
-            "life" ->
-            {
-                chosenType = "Life"
-                lifePerks.random()
-            }
-            else ->
-            {
-                chosenType = "Power"
-                perks.random()
-            }
-        }
 
-        embedBuilder.title = rolledPerk.name
-        embedBuilder.description = rolledPerk.text
-        footerBuilder.text = "${rolledPerk.card}: ${rolledPerk.meaning}"
-        embedBuilder.footer = footerBuilder
+        try {
+            val rolledPerk: PerkEntry = when (perkType)
+            {
+                "life" ->
+                {
+                    chosenType = "Life"
+                    val list = Database.getPerks("life_perks")
+                    if (list.isEmpty()) throw IllegalStateException("No life perks available in DB.")
+                    list.random()
+                }
+                else ->
+                {
+                    chosenType = "Power"
+                    val list = Database.getPerks("power_perks")
+                    if (list.isEmpty()) throw IllegalStateException("No power perks available in DB.")
+                    list.random()
+                }
+            }
 
-        response.respond {
-            content = "Rolling for a $chosenType perk..."
-            embeds = mutableListOf(embedBuilder)
+            embedBuilder.title = "rolledPerk.name (${rolledPerk.card})"
+            embedBuilder.description = rolledPerk.text
+            footerBuilder.text = rolledPerk.meaning
+            embedBuilder.footer = footerBuilder
+
+            response.respond {
+                content = "Rolling for a $chosenType perk..."
+                embeds = mutableListOf(embedBuilder)
+            }
+        } catch (e: Exception) {
+            println("PerkFunction.execute error: ${e.message}")
+            e.printStackTrace()
+            response.respond {
+                content = "Failed to roll perk: ${e.message}"
+            }
         }
     }
 }

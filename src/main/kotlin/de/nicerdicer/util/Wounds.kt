@@ -1,56 +1,112 @@
 package de.nicerdicer.util
 
+import de.nicerdicer.db.Database
 import dev.kord.common.Color
 import kotlinx.serialization.SerialName
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 
 class Wounds
 {
-    val jsonResource = this.javaClass.getResourceAsStream("/wounds.json")?.bufferedReader()?.readText()
-    val woundCatalogue = Json.decodeFromString<Map<WoundType, Map<WoundSeverity, Map<WoundLocation, Map<String, String>>>>>(jsonResource ?: "")
-    var processedWoundCatalogue = mutableMapOf<WoundType, MutableMap<WoundSeverity, MutableMap<WoundLocation, MutableList<WoundEffect>>>>()
-
-    init
-    {
-        woundCatalogue.forEach { (type, map) ->
-            processedWoundCatalogue[type] = mutableMapOf()
-            map.forEach { (severity, map) ->
-                processedWoundCatalogue[type]?.set(severity, mutableMapOf())
-                processedWoundCatalogue[type]?.get(severity)?.set(WoundLocation.HEAD, mutableListOf())
-                processedWoundCatalogue[type]?.get(severity)?.set(WoundLocation.TORSO, mutableListOf())
-                processedWoundCatalogue[type]?.get(severity)?.set(WoundLocation.ARMS, mutableListOf())
-                processedWoundCatalogue[type]?.get(severity)?.set(WoundLocation.LEGS, mutableListOf())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.HEAD)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.HEAD, severity) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.HEAD)?.addAll(map[WoundLocation.HEAD]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.HEAD, severity) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.TORSO)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.TORSO, severity) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.TORSO)?.addAll(map[WoundLocation.TORSO]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.TORSO, severity) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.ARMS)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.ARMS, severity) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.ARMS)?.addAll(map[WoundLocation.ARMS]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.ARMS, severity) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.LEGS)?.addAll(map[WoundLocation.ANY]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.LEGS, severity) } ?: emptyList())
-                processedWoundCatalogue[type]?.get(severity)?.get(WoundLocation.LEGS)?.addAll(map[WoundLocation.LEGS]?.entries?.map { WoundEffect(it.key, it.value, WoundLocation.LEGS, severity) } ?: emptyList())
-            }
-        }
+    // no in-memory catalogue any more; queries DB on demand.
+    init {
+        println("Wounds: will query wounds from DB on demand.")
     }
 
     fun roll(c: Int = 0, m: Int = 0, l: Int = 0, type: WoundType, location: WoundLocation? = null): List<WoundEffect>
     {
         val woundEffects = mutableListOf<WoundEffect>()
-        for (i in 1..c)
-        {
-            processedWoundCatalogue[type]?.get(WoundSeverity.CRITICAL)?.get(location ?: WoundLocation.roll())?.toList()?.first()?.let { woundEffects.add(it) }
-        }
-        for (i in 1..m)
-        {
-            val woundRoll = NicerRandom.random.nextInt(1, 5)
-            processedWoundCatalogue[type]?.get(WoundSeverity.MODERATE)?.get(location ?: WoundLocation.roll())?.toList()?.let { woundEffects.add(it[woundRoll - 1]) }
-        }
-        for (i in 1..l)
-        {
-            val woundRoll = NicerRandom.random.nextInt(1, 5)
-            processedWoundCatalogue[type]?.get(WoundSeverity.LESSER)?.get(location ?: WoundLocation.roll())?.toList()?.let { woundEffects.add(it[woundRoll - 1]) }
+        try {
+            val allRows = Database.getWounds()
+            if (allRows.isEmpty()) {
+                println("Wounds.roll: no wounds in DB.")
+                return emptyList()
+            }
+
+            val actualLocation = location ?: WoundLocation.roll()
+
+            // pre-filter rows for this wound type and map to parsed enums
+            data class RowParsed(val name: String, val desc: String, val severity: WoundSeverity, val location: WoundLocation)
+
+            val parsedRows = allRows.mapNotNull { row ->
+                val rType = parseWoundType(row.woundType)
+                val rSev = parseWoundSeverity(row.woundSeverity)
+                val rLoc = parseWoundLocation(row.woundLocation)
+                if (rType == null || rSev == null || rLoc == null) {
+                    println("Wounds.roll: skipping unparsable DB row: $row")
+                    null
+                } else if (!rType.name.equals(type.name, ignoreCase = true)) {
+                    null
+                } else {
+                    RowParsed(row.woundName, row.woundDescription, rSev, rLoc)
+                }
+            }
+
+            // helper to get candidate entries for a severity & location (include ANY entries)
+            fun candidatesFor(sev: WoundSeverity): List<RowParsed> =
+                parsedRows.filter { it.severity == sev && (it.location == actualLocation || it.location == WoundLocation.ANY) }
+
+            // Critical: take first candidate (if any)
+            for (i in 1..c) {
+                val cand = candidatesFor(WoundSeverity.CRITICAL)
+                if (cand.isNotEmpty()) {
+                    val chosen = cand.first()
+                    woundEffects.add(WoundEffect(chosen.name, chosen.desc, actualLocation, WoundSeverity.CRITICAL))
+                } else {
+                    println("Wounds.roll: no critical entries for type=$type location=$actualLocation")
+                }
+            }
+
+            // Moderate: pick randomly among candidates
+            for (i in 1..m) {
+                val cand = candidatesFor(WoundSeverity.MODERATE)
+                if (cand.isNotEmpty()) {
+                    val idx = NicerRandom.random.nextInt(0, cand.size)
+                    val chosen = cand[idx]
+                    woundEffects.add(WoundEffect(chosen.name, chosen.desc, actualLocation, WoundSeverity.MODERATE))
+                } else {
+                    println("Wounds.roll: no moderate entries for type=$type location=$actualLocation")
+                }
+            }
+
+            // Lesser: pick randomly among candidates
+            for (i in 1..l) {
+                val cand = candidatesFor(WoundSeverity.LESSER)
+                if (cand.isNotEmpty()) {
+                    val idx = NicerRandom.random.nextInt(0, cand.size)
+                    val chosen = cand[idx]
+                    woundEffects.add(WoundEffect(chosen.name, chosen.desc, actualLocation, WoundSeverity.LESSER))
+                } else {
+                    println("Wounds.roll: no lesser entries for type=$type location=$actualLocation")
+                }
+            }
+        } catch (e: Exception) {
+            println("Wounds.roll failed: ${e.message}")
+            e.printStackTrace()
         }
         return woundEffects
+    }
+
+    // parse helpers (tolerant mapping from DB strings to enums)
+    private fun parseWoundType(s: String?): WoundType? {
+        if (s == null) return null
+        return WoundType.values().find { it.name.equals(s, ignoreCase = true) || it.name.equals(s.replace(" ", "_"), ignoreCase = true) || it.name.equals(s.uppercase(), ignoreCase = true) || it.name.equals(s.lowercase().replaceFirstChar { it.uppercase() }, ignoreCase = true) }
+    }
+
+    private fun parseWoundSeverity(s: String?): WoundSeverity? {
+        if (s == null) return null
+        return WoundSeverity.values().find { it.name.equals(s, ignoreCase = true) || it.name.equals(s.replace(" ", "_"), ignoreCase = true) || it.name.equals(s.uppercase(), ignoreCase = true) || it.name.equals(s.lowercase().replaceFirstChar { it.uppercase() }, ignoreCase = true) }
+    }
+
+    private fun parseWoundLocation(s: String?): WoundLocation? {
+        if (s == null) return null
+        return when (s.trim().lowercase()) {
+            "any" -> WoundLocation.ANY
+            "head" -> WoundLocation.HEAD
+            "torso" -> WoundLocation.TORSO
+            "arm", "arms" -> WoundLocation.ARMS
+            "leg", "legs" -> WoundLocation.LEGS
+            else -> WoundLocation.values().find { it.name.equals(s, ignoreCase = true) }
+        }
     }
 }
 

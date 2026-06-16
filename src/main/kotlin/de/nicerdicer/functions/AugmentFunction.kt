@@ -1,7 +1,7 @@
 package de.nicerdicer.functions
 
-import de.nicerdicer.util.Augment
-import de.nicerdicer.util.CsvParserAugments
+import de.nicerdicer.db.AugmentEntry
+import de.nicerdicer.db.Database
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
@@ -10,12 +10,19 @@ import dev.kord.rest.builder.message.EmbedBuilder
 
 object AugmentFunction : FunctionBase("augment", "Rolls an augment.")
 {
-    var augmentList = emptyList<Augment>()
+    // no local caching: fetch from DB in execute()
 
     override suspend fun prepare(kord: Kord)
     {
         println("Preparing augments...")
-        augmentList = CsvParserAugments().parseCsv("/Perklist - Augments.csv")
+        try {
+            Database.init()
+            println("Database initialized for augments.")
+        } catch (e: Exception) {
+            println("Error while preparing augments: ${e.message}")
+            e.printStackTrace()
+        }
+
         kord.createGlobalChatInputCommand(name, description) {
             string("category", "e.g. Breaker or Thinker") {
                 required = true
@@ -43,22 +50,34 @@ object AugmentFunction : FunctionBase("augment", "Rolls an augment.")
 
         val categoryAsClassification = Classification.valueOf(specifiedCategory.uppercase())
 
-        val rolledAugment = augmentList.random()
+        try {
+            val augList = Database.getAugments()
+            if (augList.isEmpty()) throw IllegalStateException("No augments present in DB.")
+            val rolledAugment = augList.random()
+            val pickedAugmentText = pickFromAugment(rolledAugment, categoryAsClassification)
+            val cardRegexToRemove = Regex("\\w+\\. ")
 
-        val embedBuilder = EmbedBuilder()
-        val footerBuilder = EmbedBuilder.Footer()
-        embedBuilder.title = rolledAugment.card.lowercase().replaceFirstChar { it.uppercase() }
-        embedBuilder.description = pickFromAugment(rolledAugment, categoryAsClassification)
-        footerBuilder.text = specifiedCategory.lowercase().replaceFirstChar { it.uppercase() }
-        embedBuilder.footer = footerBuilder
+            val embedBuilder = EmbedBuilder()
+            val footerBuilder = EmbedBuilder.Footer()
+            embedBuilder.title = rolledAugment.card.lowercase().replaceFirstChar { it.uppercase() }
+            embedBuilder.description = cardRegexToRemove.replaceFirst(pickedAugmentText, "")
+            footerBuilder.text = specifiedCategory.lowercase().replaceFirstChar { it.uppercase() }
+            embedBuilder.footer = footerBuilder
 
-        response.respond {
-            content = "Rolling an augment..."
-            embeds = mutableListOf(embedBuilder)
+            response.respond {
+                content = "Rolling an augment..."
+                embeds = mutableListOf(embedBuilder)
+            }
+        } catch (e: Exception) {
+            println("AugmentFunction.execute error: ${e.message}")
+            e.printStackTrace()
+            response.respond {
+                content = "Failed to roll augment: ${e.message}"
+            }
         }
     }
 
-    private fun pickFromAugment(augment: Augment, classification: Classification): String
+    private fun pickFromAugment(augment: AugmentEntry, classification: Classification): String
     {
         return when (classification)
         {

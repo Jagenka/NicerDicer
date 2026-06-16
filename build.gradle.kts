@@ -22,6 +22,7 @@ dependencies {
     implementation("dev.kord.x:emoji:0.5.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     implementation("com.opencsv:opencsv:5.12.0")
+    implementation("org.xerial:sqlite-jdbc:3.53.2.0")
 }
 
 tasks.test {

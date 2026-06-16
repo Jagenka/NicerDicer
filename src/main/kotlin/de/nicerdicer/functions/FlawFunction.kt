@@ -1,7 +1,7 @@
 package de.nicerdicer.functions
 
-import de.nicerdicer.util.CsvParserPerks
-import de.nicerdicer.util.Perk
+import de.nicerdicer.db.Database
+import de.nicerdicer.db.PerkEntry
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
@@ -10,14 +10,19 @@ import dev.kord.rest.builder.message.EmbedBuilder
 
 object FlawFunction : FunctionBase("flaw", "Rolls flaws.")
 {
-    var flaws = emptyList<Perk>()
-    var lifeFlaws = emptyList<Perk>()
+    // no local caching: fetch from DB in execute()
 
     override suspend fun prepare(kord: Kord)
     {
         println("Preparing flaws...")
-        flaws = CsvParserPerks().parseCsv("/Perklist - Power Flaws.csv")
-        lifeFlaws = CsvParserPerks().parseCsv("/Perklist - Life Flaws.csv")
+        try {
+            Database.init()
+            println("Database initialized for flaws.")
+        } catch (e: Exception) {
+            println("Error while preparing flaws: ${e.message}")
+            e.printStackTrace()
+        }
+
         kord.createGlobalChatInputCommand("flaw", "Rolls flaws.") {
             subCommand("power", "Rolls a power flaw.")
             subCommand("life", "Rolls a power flaw.")
@@ -32,28 +37,41 @@ object FlawFunction : FunctionBase("flaw", "Rolls flaws.")
         val footerBuilder = EmbedBuilder.Footer()
         val perkType = event.interaction.command.data.options.value?.map { it.name }?.first()
         var chosenType: String?
-        val rolledPerk: Perk = when (perkType)
-        {
-            "life" ->
-            {
-                chosenType = "Life"
-                lifeFlaws.random()
-            }
-            else ->
-            {
-                chosenType = "Power"
-                flaws.random()
-            }
-        }
 
-        embedBuilder.title = rolledPerk.name
-        embedBuilder.description = rolledPerk.text
-        footerBuilder.text = "${rolledPerk.card}: ${rolledPerk.meaning}"
-        embedBuilder.footer = footerBuilder
+        try {
+            val rolledPerk: PerkEntry = when (perkType)
+            {
+                "life" ->
+                {
+                    chosenType = "Life"
+                    val list = Database.getPerks("life_flaws")
+                    if (list.isEmpty()) throw IllegalStateException("No life flaws available in DB.")
+                    list.random()
+                }
+                else ->
+                {
+                    chosenType = "Power"
+                    val list = Database.getPerks("power_flaws")
+                    if (list.isEmpty()) throw IllegalStateException("No power flaws available in DB.")
+                    list.random()
+                }
+            }
 
-        response.respond {
-            content = "Rolling for a $chosenType flaw..."
-            embeds = mutableListOf(embedBuilder)
+            embedBuilder.title = "${rolledPerk.name} (${rolledPerk.card})"
+            embedBuilder.description = rolledPerk.text
+            footerBuilder.text = rolledPerk.meaning
+            embedBuilder.footer = footerBuilder
+
+            response.respond {
+                content = "Rolling for a $chosenType flaw..."
+                embeds = mutableListOf(embedBuilder)
+            }
+        } catch (e: Exception) {
+            println("FlawFunction.execute error: ${e.message}")
+            e.printStackTrace()
+            response.respond {
+                content = "Failed to roll flaw: ${e.message}"
+            }
         }
     }
 }
