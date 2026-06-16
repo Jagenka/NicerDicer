@@ -5,7 +5,6 @@ import dev.kord.common.entity.Permissions
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.respondEphemeral
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
-import dev.kord.rest.builder.interaction.SubCommandBuilder
 
 object ShutdownFunction : FunctionBase("shutdown", "Shutdown the bot!") {
     var kord: Kord? = null

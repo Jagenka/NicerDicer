@@ -4,7 +4,6 @@ import de.nicerdicer.util.WoundLocation
 import de.nicerdicer.util.WoundType
 import de.nicerdicer.util.Wounds
 import dev.kord.core.Kord
-import dev.kord.core.behavior.interaction.respondPublic
 import dev.kord.core.behavior.interaction.response.createPublicFollowup
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent

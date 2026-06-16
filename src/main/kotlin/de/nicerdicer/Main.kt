@@ -3,11 +3,8 @@ package de.nicerdicer
 import dev.kord.core.Kord
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
-import dev.kord.gateway.Intent
-import dev.kord.gateway.PrivilegedIntent
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import java.io.File
 
 object Main
 {

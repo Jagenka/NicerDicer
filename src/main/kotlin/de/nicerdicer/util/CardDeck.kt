@@ -25,7 +25,6 @@ class CardDeck {
 }
 
 class CardHand {
-    val handSize = 5
     val cards = mutableListOf<Card>()
 
     fun addCard(card: Card) = cards.add(card)
@@ -69,60 +68,75 @@ enum class Suit {
     abstract fun asEmoji(): String
 }
 
-enum class Rank(number: Int) {
-    JOKER(0) {
+enum class Rank
+{
+    JOKER
+    {
         override fun asName() = "Joker"
         override fun asShortName() = Emojis.blackJoker.unicode
     },
-    ACE(1) {
+    ACE
+    {
         override fun asName() = "Ace"
         override fun asShortName() = "A"
     },
-    TWO(2) {
+    TWO
+    {
         override fun asName() = "2"
         override fun asShortName() = "2"
     },
-    THREE(3) {
+    THREE
+    {
         override fun asName() = "3"
         override fun asShortName() = "3"
     },
-    FOUR(4) {
+    FOUR
+    {
         override fun asName() = "4"
         override fun asShortName() = "4"
     },
-    FIVE(5) {
+    FIVE
+    {
         override fun asName() = "5"
         override fun asShortName() = "5"
     },
-    SIX(6) {
+    SIX
+    {
         override fun asName() = "6"
         override fun asShortName() = "6"
     },
-    SEVEN(7) {
+    SEVEN
+    {
         override fun asName() = "7"
         override fun asShortName() = "7"
     },
-    EIGHT(8) {
+    EIGHT
+    {
         override fun asName() = "8"
         override fun asShortName() = "8"
     },
-    NINE(9) {
+    NINE
+    {
         override fun asName() = "9"
         override fun asShortName() = "9"
     },
-    TEN(10) {
+    TEN
+    {
         override fun asName() = "10"
         override fun asShortName() = "10"
     },
-    JACK(11) {
+    JACK
+    {
         override fun asName() = "Jack"
         override fun asShortName() = "J"
     },
-    QUEEN(12) {
+    QUEEN
+    {
         override fun asName() = "Queen"
         override fun asShortName() = "Q"
     },
-    KING(13) {
+    KING
+    {
         override fun asName() = "King"
         override fun asShortName() = "K"
     };

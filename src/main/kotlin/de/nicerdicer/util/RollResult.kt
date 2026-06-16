@@ -1,8 +1,5 @@
 package de.nicerdicer.util
 
-import dev.kord.core.behavior.interaction.response.DeferredPublicMessageInteractionResponseBehavior
-import dev.kord.core.behavior.interaction.response.respond
-
 class RollResult(val diceType: Int, val amount: Int, val modifier: Int)
 {
     private val diceRolls: MutableList<Int> = mutableListOf()
@@ -17,7 +14,7 @@ class RollResult(val diceType: Int, val amount: Int, val modifier: Int)
         if (diceType <= 0 || amount <= 0) return false
 
         diceRolls.clear()
-        for (i in 1..amount)
+        repeat(amount)
         {
             val roll = NicerRandom.nextRoll(diceType)
             diceRolls.add(roll)
