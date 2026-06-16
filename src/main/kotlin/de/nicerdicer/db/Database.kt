@@ -1,15 +1,14 @@
+@file:Suppress("SameParameterValue")
+
 package de.nicerdicer.db
 
 import java.sql.Connection
 import java.sql.DriverManager
 
 object Database {
-    private const val dbPath = "db/nicerdicer.db"
+    private const val DB_PATH = "db/nicerdicer.db"
     @Volatile
     private var initialized = false
-
-    // Regex kept for compatibility but not used for multiline parsing
-    private val csvSplitRegex = Regex(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*\$)")
 
     private fun connect(): Connection
     {
@@ -19,14 +18,14 @@ object Database {
             println("Database: SQLite JDBC driver not found. Add dependency org.xerial:sqlite-jdbc. Error: ${e.message}")
             throw e
         }
-        return DriverManager.getConnection("jdbc:sqlite:$dbPath")
+        return DriverManager.getConnection("jdbc:sqlite:$DB_PATH")
     }
 
     fun init() {
         if (initialized) return
         synchronized(this) {
             if (initialized) return
-            println("Database: Initializing SQLite DB at $dbPath ...")
+            println("Database: Initializing SQLite DB at $DB_PATH ...")
             try {
                 connect().use { conn ->
                     conn.createStatement().use { stmt ->
@@ -49,7 +48,7 @@ object Database {
                         stmt.execute("CREATE TABLE IF NOT EXISTS wounds (wound_type TEXT, wound_severity TEXT, wound_location TEXT, wound_name TEXT, wound_description TEXT);")
                     }
 
-                    fillTableIfEmpty(conn, "augments", "/Perklist - Augments.csv") { headers, row ->
+                    fillTableIfEmpty(conn, "augments", "/Perklist - Augments.csv") { _, row ->
                         conn.prepareStatement(
                             "INSERT OR IGNORE INTO augments(card,general,blaster,breaker,brute,changer,master,mover,shaker,stranger,striker,tinker,thinker,trump) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
                         ).use { ps ->
@@ -193,8 +192,7 @@ object Database {
         var inQuotes = false
         var i = 0
         while (i < text.length) {
-            val c = text[i]
-            when (c) {
+            when (val c = text[i]) {
                 '"' -> {
                     // handle escaped double quote
                     if (inQuotes && i + 1 < text.length && text[i + 1] == '"') {
@@ -338,20 +336,6 @@ object Database {
         return null
     }
 
-    // keep extractJsonValue for backward compatibility if needed
-    private fun extractJsonValue(objStr: String, keys: List<String>): String {
-        for (key in keys) {
-            val pattern = Regex("(?s)\"${Regex.escape(key)}\"\\s*:\\s*\"(.*?)\"")
-            val m = pattern.find(objStr)
-            if (m != null) return m.groupValues[1].replace("\"\"", "\"").trim()
-            val pattern2 = Regex("(?s)${Regex.escape(key)}\\s*:\\s*\"(.*?)\"")
-            val m2 = pattern2.find(objStr)
-            if (m2 != null) return m2.groupValues[1].replace("\"\"", "\"").trim()
-        }
-        val anyString = Regex("(?s)\"(.*?)\"\\s*:\\s*\"(.*?)\"").find(objStr)
-        return anyString?.groupValues?.get(2)?.replace("\"\"", "\"")?.trim() ?: ""
-    }
-
     // getters to fetch lists into memory for use by functions
     fun getAugments(): List<AugmentEntry> {
         init()
@@ -413,17 +397,6 @@ object Database {
             e.printStackTrace()
         }
         return list
-    }
-
-    fun getWoundsJson(): String {
-        init()
-        try {
-            return readResourceAsText("/wounds.json")
-        } catch (e: Exception) {
-            println("Database.getWoundsJson failed to read resource: ${e.message}")
-            e.printStackTrace()
-            return "{}"
-        }
     }
 
     fun getWounds(): List<WoundEntry> {
