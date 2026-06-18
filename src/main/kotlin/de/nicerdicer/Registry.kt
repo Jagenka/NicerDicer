@@ -11,6 +11,7 @@ import de.nicerdicer.functions.PerkFunction
 import de.nicerdicer.functions.RollFunction
 import de.nicerdicer.functions.ShutdownFunction
 import de.nicerdicer.functions.WoundFunction
+import de.nicerdicer.functions.TagFunction
 import dev.kord.core.Kord
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 
@@ -26,7 +27,8 @@ object Registry
         AugmentFunction,
         CombatFunction,
         LegacyRollFunction,
-        ChangeDiceFunction
+        ChangeDiceFunction,
+        TagFunction
     )
 
     val commandMap = mutableMapOf<String, FunctionBase>()
