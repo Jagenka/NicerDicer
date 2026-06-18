@@ -46,6 +46,8 @@ object Database {
                         stmt.execute("CREATE TABLE IF NOT EXISTS life_flaws (card TEXT, name TEXT, text TEXT, meaning TEXT);")
                         // normalized wounds table (store full structure: type, severity, location, name, description)
                         stmt.execute("CREATE TABLE IF NOT EXISTS wounds (wound_type TEXT, wound_severity TEXT, wound_location TEXT, wound_name TEXT, wound_description TEXT);")
+                        // NEW: tags table (name uses NOCASE collation so comparisons/uniqueness ignore case)
+                        stmt.execute("CREATE TABLE IF NOT EXISTS tags (name TEXT PRIMARY KEY COLLATE NOCASE, owner TEXT, content TEXT);")
                     }
 
                     fillTableIfEmpty(conn, "augments", "/Perklist - Augments.csv") { _, row ->
@@ -426,4 +428,177 @@ object Database {
         }
         return list
     }
+
+    // --- Tag helpers (CRUD) ---
+
+    /**
+     * Create a tag. Returns true on success, false on failure (already exists or error).
+     */
+    fun createTag(name: String, ownerId: String, content: String): Boolean {
+        init()
+        try {
+            // check existence case-insensitively
+            connect().use { conn ->
+                conn.prepareStatement("SELECT name FROM tags WHERE name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, name)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            println("Database.createTag: tag '${name}' already exists (case-insensitive match).")
+                            return false
+                        }
+                    }
+                }
+            }
+             connect().use { conn ->
+                 conn.prepareStatement("INSERT INTO tags(name, owner, content) VALUES(?,?,?)").use { ps ->
+                     ps.setString(1, name)
+                     ps.setString(2, ownerId)
+                     ps.setString(3, content)
+                     ps.executeUpdate()
+                 }
+             }
+             println("Database.createTag: created tag '$name' by owner $ownerId")
+             return true
+         } catch (e: Exception) {
+             // handle uniqueness / constraint messages gracefully
+            val msg = e.message ?: "<no message>"
+            if (msg.contains("constraint", true) || msg.contains("unique", true) || e is java.sql.SQLIntegrityConstraintViolationException) {
+                println("Database.createTag: tag '$name' already exists (caught exception).")
+                return false
+            }
+             println("Database.createTag failed for '$name': $msg")
+             e.printStackTrace()
+             return false
+         }
+     }
+
+     /**
+      * Update a tag's content. Only the original owner may update.
+      * Returns true on success, false otherwise.
+      */
+     fun updateTag(name: String, ownerId: String, newContent: String): Boolean {
+         init()
+         try {
+             connect().use { conn ->
+                conn.prepareStatement("SELECT owner FROM tags WHERE name = ? COLLATE NOCASE").use { ps ->
+                     ps.setString(1, name)
+                     ps.executeQuery().use { rs ->
+                         if (!rs.next()) {
+                             println("Database.updateTag: tag '$name' does not exist.")
+                             return false
+                         }
+                         val existingOwner = rs.getString("owner") ?: ""
+                         if (existingOwner != ownerId) {
+                             println("Database.updateTag: owner mismatch for '$name' (expected $existingOwner, got $ownerId).")
+                             return false
+                         }
+                     }
+                 }
+                conn.prepareStatement("UPDATE tags SET content = ? WHERE name = ? COLLATE NOCASE").use { ps ->
+                     ps.setString(1, newContent)
+                     ps.setString(2, name)
+                     val updated = ps.executeUpdate()
+                     println("Database.updateTag: updated rows = $updated for tag '$name'")
+                 }
+             }
+             return true
+         } catch (e: Exception) {
+             println("Database.updateTag failed for '$name': ${e.message}")
+             e.printStackTrace()
+             return false
+         }
+     }
+
+     /**
+      * Delete a tag. Only the original owner may delete.
+      * Returns true on success, false otherwise.
+      */
+     fun deleteTag(name: String, ownerId: String): Boolean {
+         init()
+         try {
+             connect().use { conn ->
+                conn.prepareStatement("SELECT owner FROM tags WHERE name = ? COLLATE NOCASE").use { ps ->
+                     ps.setString(1, name)
+                     ps.executeQuery().use { rs ->
+                         if (!rs.next()) {
+                             println("Database.deleteTag: tag '$name' does not exist.")
+                             return false
+                         }
+                         val existingOwner = rs.getString("owner") ?: ""
+                         if (existingOwner != ownerId) {
+                             println("Database.deleteTag: owner mismatch for '$name' (expected $existingOwner, got $ownerId).")
+                             return false
+                         }
+                     }
+                 }
+                conn.prepareStatement("DELETE FROM tags WHERE name = ? COLLATE NOCASE").use { ps ->
+                     ps.setString(1, name)
+                     val deleted = ps.executeUpdate()
+                     println("Database.deleteTag: deleted rows = $deleted for tag '$name'")
+                 }
+             }
+             return true
+         } catch (e: Exception) {
+             println("Database.deleteTag failed for '$name': ${e.message}")
+             e.printStackTrace()
+             return false
+         }
+     }
+
+     /**
+      * Retrieve a single tag by name, or null if not found.
+      */
+     fun getTag(name: String): TagEntry? {
+         init()
+         try {
+             connect().use { conn ->
+                conn.prepareStatement("SELECT name, owner, content FROM tags WHERE name = ? COLLATE NOCASE").use { ps ->
+                     ps.setString(1, name)
+                     ps.executeQuery().use { rs ->
+                         if (rs.next()) {
+                             return TagEntry(
+                                 name = rs.getString("name") ?: "",
+                                 owner = rs.getString("owner") ?: "",
+                                 content = rs.getString("content") ?: ""
+                             )
+                         }
+                     }
+                 }
+             }
+         } catch (e: Exception) {
+             println("Database.getTag failed for '$name': ${e.message}")
+             e.printStackTrace()
+         }
+         return null
+     }
+
+     /**
+      * List tags owned by a given user id.
+      */
+     fun listTagsByOwner(ownerId: String): List<TagEntry> {
+         init()
+         val res = mutableListOf<TagEntry>()
+         try {
+             connect().use { conn ->
+                 conn.prepareStatement("SELECT name, owner, content FROM tags WHERE owner = ? ORDER BY name COLLATE NOCASE").use { ps ->
+                     ps.setString(1, ownerId)
+                     ps.executeQuery().use { rs ->
+                         while (rs.next()) {
+                             res.add(
+                                 TagEntry(
+                                     name = rs.getString("name") ?: "",
+                                     owner = rs.getString("owner") ?: "",
+                                     content = rs.getString("content") ?: ""
+                                 )
+                             )
+                         }
+                     }
+                 }
+             }
+         } catch (e: Exception) {
+             println("Database.listTagsByOwner failed for owner '$ownerId': ${e.message}")
+             e.printStackTrace()
+         }
+         return res
+     }
 }

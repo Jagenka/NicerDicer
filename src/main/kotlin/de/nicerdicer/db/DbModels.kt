@@ -33,3 +33,10 @@ data class WoundEntry(
     val woundName: String,
     val woundDescription: String
 )
+
+// new: tag model
+data class TagEntry(
+    val name: String,
+    val owner: String,   // user id as string
+    val content: String
+)
