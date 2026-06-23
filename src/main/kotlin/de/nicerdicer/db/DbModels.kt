@@ -40,3 +40,11 @@ data class TagEntry(
     val owner: String,   // user id as string
     val content: String
 )
+
+// new: territory model
+data class TerritoryEntry(
+    val id: Int,
+    val name: String,
+    val owner: String?,   // user id as string, null if unowned
+    val color: String?    // owner's color hex (e.g. "#RRGGBB") or null
+)

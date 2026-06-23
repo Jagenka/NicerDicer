@@ -48,6 +48,33 @@ object Database {
                         stmt.execute("CREATE TABLE IF NOT EXISTS wounds (wound_type TEXT, wound_severity TEXT, wound_location TEXT, wound_name TEXT, wound_description TEXT);")
                         // NEW: tags table (name uses NOCASE collation so comparisons/uniqueness ignore case)
                         stmt.execute("CREATE TABLE IF NOT EXISTS tags (name TEXT PRIMARY KEY COLLATE NOCASE, owner TEXT, content TEXT);")
+
+                        // new: territory owners/colors (one color per owner PER GUILD). color stored as text like "#RRGGBB"
+                        stmt.execute(
+                            """
+                            CREATE TABLE IF NOT EXISTS territory_owners (
+                                guild TEXT NOT NULL,
+                                owner TEXT NOT NULL,
+                                color TEXT,
+                                PRIMARY KEY (guild, owner)
+                            );
+                            """.trimIndent()
+                        )
+
+                        // new: territories table: (guild, id) identifies a territory,
+                        // name is unique per guild (case-insensitive), owner references owner id (nullable)
+                        stmt.execute(
+                            """
+                            CREATE TABLE IF NOT EXISTS territories (
+                                guild TEXT NOT NULL,
+                                id INTEGER NOT NULL,
+                                name TEXT COLLATE NOCASE,
+                                owner TEXT,
+                                PRIMARY KEY (guild, id),
+                                UNIQUE (guild, name)
+                            );
+                            """.trimIndent()
+                        )
                     }
 
                     fillTableIfEmpty(conn, "augments", "/Perklist - Augments.csv") { _, row ->
@@ -601,4 +628,292 @@ object Database {
          }
          return res
      }
+
+    // --- Territory helpers ---
+
+    /**
+     * Set or update the caller's color for a specific guild. Returns true if set, false on invalid color or black / error.
+     */
+    fun setOwnerColor(ownerId: String, guildId: String, colorHex: String): Boolean {
+        init()
+        val normalized = colorHex.trim().let { if (it.startsWith("#")) it.uppercase() else "#${it.uppercase()}" }
+        if (normalized.equals("#000000", true)) {
+            println("Database.setOwnerColor: black (#000000) is reserved and cannot be used.")
+            return false
+        }
+        // validate hex format #RRGGBB
+        if (!Regex("^#([A-F0-9]{6})$").matches(normalized)) {
+            println("Database.setOwnerColor: invalid color format '$colorHex'")
+            return false
+        }
+        try {
+            connect().use { conn ->
+                conn.prepareStatement(
+                    "INSERT INTO territory_owners(guild,owner,color) VALUES(?,?,?) ON CONFLICT(guild,owner) DO UPDATE SET color=excluded.color"
+                ).use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, ownerId)
+                    ps.setString(3, normalized)
+                    ps.executeUpdate()
+                }
+            }
+            println("Database.setOwnerColor: set color $normalized for owner $ownerId in guild $guildId")
+            return true
+        } catch (e: Exception) {
+            println("Database.setOwnerColor failed for owner '$ownerId' guild='$guildId': ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    fun getOwnerColor(ownerId: String, guildId: String): String? {
+        init()
+        try {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT color FROM territory_owners WHERE owner = ? AND guild = ?").use { ps ->
+                    ps.setString(1, ownerId)
+                    ps.setString(2, guildId)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next()) return rs.getString("color")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("Database.getOwnerColor failed for owner '$ownerId' guild='$guildId': ${e.message}")
+            e.printStackTrace()
+        }
+        return null
+    }
+
+    /**
+     * Claim a territory by numeric id within a guild. Only allowed if territory is unowned or already owned by caller.
+     * Returns true on success.
+     */
+    fun claimTerritory(id: Int, ownerId: String, guildId: String, optionalName: String? = null): Boolean {
+        init()
+        try {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT owner FROM territories WHERE guild = ? AND id = ?").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setInt(2, id)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            val existingOwner = rs.getString("owner")
+                            if (existingOwner != null && existingOwner != ownerId) {
+                                println("Database.claimTerritory: territory $id in guild $guildId already owned by $existingOwner")
+                                return false
+                            }
+                        }
+                    }
+                }
+                // ensure a row exists (create or update) for this guild
+                if (optionalName != null) {
+                    conn.prepareStatement(
+                        "INSERT INTO territories(guild,id,name,owner) VALUES(?,?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner=excluded.owner, name=COALESCE(excluded.name,territories.name)"
+                    ).use { ps ->
+                        ps.setString(1, guildId)
+                        ps.setInt(2, id)
+                        ps.setString(3, optionalName)
+                        ps.setString(4, ownerId)
+                        ps.executeUpdate()
+                    }
+                } else {
+                    conn.prepareStatement(
+                        "INSERT INTO territories(guild,id,owner) VALUES(?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner=excluded.owner"
+                    ).use { ps ->
+                        ps.setString(1, guildId)
+                        ps.setInt(2, id)
+                        ps.setString(3, ownerId)
+                        ps.executeUpdate()
+                    }
+                }
+            }
+            println("Database.claimTerritory: owner $ownerId claimed territory $id in guild $guildId")
+            return true
+        } catch (e: Exception) {
+            println("Database.claimTerritory failed for id=$id owner=$ownerId guild=$guildId: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    /**
+     * Release a territory in a specific guild. Only allowed if caller is owner.
+     * Resets the territory name to default ("Territory <id>") when released.
+     */
+    fun releaseTerritory(id: Int, ownerId: String, guildId: String): Boolean {
+        init()
+        try {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT owner FROM territories WHERE guild = ? AND id = ?").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setInt(2, id)
+                    ps.executeQuery().use { rs ->
+                        if (!rs.next()) {
+                            println("Database.releaseTerritory: territory $id in guild $guildId does not exist.")
+                            return false
+                        }
+                        val existingOwner = rs.getString("owner")
+                        if (existingOwner == null) {
+                            println("Database.releaseTerritory: territory $id in guild $guildId is already unowned.")
+                            return false
+                        }
+                        if (existingOwner != ownerId) {
+                            println("Database.releaseTerritory: owner mismatch (expected $existingOwner, got $ownerId) for guild $guildId.")
+                            return false
+                        }
+                    }
+                }
+                // Reset owner and name to default
+                val defaultName = "Territory $id"
+                conn.prepareStatement("UPDATE territories SET owner = NULL, name = ? WHERE guild = ? AND id = ?").use { ps ->
+                    ps.setString(1, defaultName)
+                    ps.setString(2, guildId)
+                    ps.setInt(3, id)
+                    ps.executeUpdate()
+                }
+            }
+            println("Database.releaseTerritory: owner $ownerId released territory $id in guild $guildId and name reset to default.")
+            return true
+        } catch (e: Exception) {
+            println("Database.releaseTerritory failed for id=$id owner=$ownerId guild=$guildId: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    /**
+     * Ensure every id in 'ids' exists in the territories table for the given guild with default values.
+     * Idempotent: existing rows are left alone.
+     */
+    fun initializeTerritories(ids: Collection<Int>, guildId: String) {
+        init()
+        if (ids.isEmpty()) return
+        try {
+            connect().use { conn ->
+                conn.autoCommit = false
+                try {
+                    conn.prepareStatement("INSERT OR IGNORE INTO territories(guild,id,name,owner) VALUES(?,?,?,NULL)").use { ps ->
+                        for (id in ids) {
+                            ps.setString(1, guildId)
+                            ps.setInt(2, id)
+                            ps.setString(3, "Territory $id")
+                            ps.addBatch()
+                        }
+                        ps.executeBatch()
+                    }
+                    conn.commit()
+                    println("Database.initializeTerritories: ensured ${ids.size} territory rows exist for guild $guildId.")
+                } catch (e: Exception) {
+                    conn.rollback()
+                    println("Database.initializeTerritories: rollback due to ${e.message}")
+                    e.printStackTrace()
+                } finally {
+                    conn.autoCommit = true
+                }
+            }
+        } catch (e: Exception) {
+            println("Database.initializeTerritories failed for guild $guildId: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Rename a territory in a guild. Only the original owner may rename.
+     * Ensures name uniqueness (case-insensitive within guild). Returns true on success.
+     */
+    fun renameTerritory(id: Int, ownerId: String, guildId: String, newName: String): Boolean {
+        init()
+        val trimmed = newName.trim()
+        if (trimmed.isEmpty()) {
+            println("Database.renameTerritory: new name is empty.")
+            return false
+        }
+        try {
+            connect().use { conn ->
+                // ensure territory exists and owner matches
+                conn.prepareStatement("SELECT owner FROM territories WHERE guild = ? AND id = ?").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setInt(2, id)
+                    ps.executeQuery().use { rs ->
+                        if (!rs.next()) {
+                            println("Database.renameTerritory: territory $id in guild $guildId does not exist.")
+                            return false
+                        }
+                        val existingOwner = rs.getString("owner")
+                        if (existingOwner == null || existingOwner != ownerId) {
+                            println("Database.renameTerritory: owner mismatch or unowned for territory $id in guild $guildId (owner=$existingOwner, caller=$ownerId).")
+                            return false
+                        }
+                    }
+                }
+                // ensure new name not used by another territory in the same guild (case-insensitive)
+                conn.prepareStatement("SELECT id FROM territories WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, trimmed)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            val foundId = rs.getInt("id")
+                            if (foundId != id) {
+                                println("Database.renameTerritory: name '$trimmed' already used by territory $foundId in guild $guildId.")
+                                return false
+                            }
+                        }
+                    }
+                }
+                // perform update
+                conn.prepareStatement("UPDATE territories SET name = ? WHERE guild = ? AND id = ?").use { ps ->
+                    ps.setString(1, trimmed)
+                    ps.setString(2, guildId)
+                    ps.setInt(3, id)
+                    val updated = ps.executeUpdate()
+                    println("Database.renameTerritory: updated rows = $updated for territory $id in guild $guildId -> name='$trimmed'")
+                }
+            }
+            return true
+        } catch (e: Exception) {
+            println("Database.renameTerritory failed for id=$id owner=$ownerId guild=$guildId newName='$newName': ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    /**
+     * List all territories for a given guild with owner and owner's color (if present).
+     */
+    fun listTerritories(guildId: String): List<TerritoryEntry> {
+        init()
+        val res = mutableListOf<TerritoryEntry>()
+        try {
+            connect().use { conn ->
+                conn.prepareStatement(
+                    """
+                    SELECT t.id as id, t.name as name, t.owner as owner, o.color as color
+                    FROM territories t
+                    LEFT JOIN territory_owners o ON o.guild = t.guild AND o.owner = t.owner
+                    WHERE t.guild = ?
+                    ORDER BY t.id
+                    """.trimIndent()
+                ).use { ps ->
+                    ps.setString(1, guildId)
+                    ps.executeQuery().use { rs ->
+                        while (rs.next()) {
+                            res.add(
+                                TerritoryEntry(
+                                    id = rs.getInt("id"),
+                                    name = rs.getString("name") ?: "Territory ${rs.getInt("id")}",
+                                    owner = rs.getString("owner"),
+                                    color = rs.getString("color")
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("Database.listTerritories failed for guild $guildId: ${e.message}")
+            e.printStackTrace()
+        }
+        return res
+    }
 }
