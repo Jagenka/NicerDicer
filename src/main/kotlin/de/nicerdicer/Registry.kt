@@ -8,10 +8,12 @@ import de.nicerdicer.functions.FlawFunction
 import de.nicerdicer.functions.FunctionBase
 import de.nicerdicer.functions.LegacyRollFunction
 import de.nicerdicer.functions.PerkFunction
+import de.nicerdicer.functions.QuickTagFunction
 import de.nicerdicer.functions.RollFunction
 import de.nicerdicer.functions.ShutdownFunction
 import de.nicerdicer.functions.WoundFunction
 import de.nicerdicer.functions.TagFunction
+import de.nicerdicer.functions.TerritoryFunction
 import dev.kord.core.Kord
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 
@@ -28,7 +30,9 @@ object Registry
         CombatFunction,
         LegacyRollFunction,
         ChangeDiceFunction,
-        TagFunction
+        TagFunction,
+        QuickTagFunction,
+        TerritoryFunction
     )
 
     val commandMap = mutableMapOf<String, FunctionBase>()
