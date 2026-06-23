@@ -22,9 +22,9 @@ object LegacyRollFunction : FunctionBase("r", "Roll function via a string.")
         val response = event.interaction.deferPublicResponse()
         val rs = event.interaction.command.strings["roll_string"] ?: "3d20+4"
 
-        val amount = Regex("\\d+[dD]").find(rs)?.value?.dropLast(1)?.toInt() ?: 3
+        val amount = Regex("\\d+[dD]").find(rs)?.value?.dropLast(1)?.toInt() ?: 1
         val dieType = Regex("[dD]\\d+").find(rs)?.value?.drop(1)?.toInt() ?: 20
-        val modifier = Regex("[+-]\\d+").find(rs)?.value?.toInt() ?: 4
+        val modifier = Regex("[+-]\\d+").find(rs)?.value?.toInt() ?: 0
 
         val result = RollResult(dieType, amount, modifier)
 
