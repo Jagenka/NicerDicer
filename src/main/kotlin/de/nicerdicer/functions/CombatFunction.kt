@@ -1,5 +1,7 @@
 package de.nicerdicer.functions
 
+import de.nicerdicer.util.KordUtil
+import de.nicerdicer.util.KordUtil.getMemberName
 import de.nicerdicer.util.RollResult
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
@@ -235,7 +237,7 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
             {
                 val response = event.interaction.deferPublicResponse()
 
-                var list = combat.initiativeOrder.map { getMemberName(event.interaction.data.guildId.value, it.user) }
+                var list = combat.initiativeOrder.map { getMemberName(kord, event.interaction.data.guildId.value, it.user) }
                 if (combat.isRunning) list = combat.combatOrder.map { it.user.effectiveName }
 
                 response.respond {
@@ -286,15 +288,6 @@ object CombatFunction : FunctionBase("combat", "Everything relating to combat.")
         }
     }
 
-    private suspend fun getMemberName(guildId: Snowflake?, user: User): String
-    {
-        guildId?.let {
-            kord?.getGuild(it)?.getMember(user.id)?.effectiveName?.let { memberName ->
-                return memberName
-            }
-        }
-        return user.effectiveName
-    }
 }
 
 class Combat(val combatOrder: MutableList<Combatant> = mutableListOf(), val trackedReminders: MutableMap<Int, MutableList<Pair<User, String>>> = mutableMapOf())
