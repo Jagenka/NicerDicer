@@ -7,7 +7,7 @@ import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 
-object TagFunction : FunctionBase("t", "Show given tag.")
+object TagFunction : FunctionBase("tag", "Show given tag.")
 {
     override suspend fun prepare(kord: Kord)
     {
@@ -50,7 +50,7 @@ object TagFunction : FunctionBase("t", "Show given tag.")
                     val responseContent = event.interaction.command.strings["content"] ?: ""
                     if (name.isBlank() || responseContent.isBlank())
                     {
-                        response.respond { content = "Usage: /t create name:<name> content:<text>" }
+                        response.respond { content = "Usage: /tag create name:<name> content:<text>" }
                         return
                     }
                     val ownerId = event.interaction.user.id.toString()
@@ -65,7 +65,7 @@ object TagFunction : FunctionBase("t", "Show given tag.")
                     val responseContent = event.interaction.command.strings["content"] ?: ""
                     if (name.isBlank() || responseContent.isBlank())
                     {
-                        response.respond { content = "Usage: /t edit name:<name> content:<text>" }
+                        response.respond { content = "Usage: /tag edit name:<name> content:<text>" }
                         return
                     }
                     val ownerId = event.interaction.user.id.toString()
@@ -79,7 +79,7 @@ object TagFunction : FunctionBase("t", "Show given tag.")
                     val name = (event.interaction.command.strings["name"] ?: "").trim()
                     if (name.isBlank())
                     {
-                        response.respond { content = "Usage: /t delete name:<name>" }
+                        response.respond { content = "Usage: /tag delete name:<name>" }
                         return
                     }
                     val ownerId = event.interaction.user.id.toString()
@@ -104,7 +104,7 @@ object TagFunction : FunctionBase("t", "Show given tag.")
                 { // default / get <name>
                     val nameInput = (event.interaction.command.strings["name"] ?: subCommand).trim()
                     if (nameInput.isBlank()) {
-                        response.respond { content = "Usage: /t get name:<name>" }
+                        response.respond { content = "Usage: /tag get name:<name>" }
                         return
                     }
                     Database.getTag(nameInput)?.let {
@@ -118,12 +118,7 @@ object TagFunction : FunctionBase("t", "Show given tag.")
         {
             println("TagFunction.execute: unexpected error: ${e.message}")
             e.printStackTrace()
-            try
-            {
-                response.respond { content = "An internal error occurred while handling the tag command." }
-            } catch (_: Exception)
-            {
-            }
+            response.respond { content = "An internal error occurred while handling the tag command." }
         }
     }
 }
