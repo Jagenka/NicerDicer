@@ -1,5 +1,6 @@
 package de.nicerdicer
 
+import de.nicerdicer.functions.AlignmentFunction
 import de.nicerdicer.functions.AugmentFunction
 import de.nicerdicer.functions.CardFunction
 import de.nicerdicer.functions.ChangeDiceFunction
@@ -32,7 +33,8 @@ object Registry
         ChangeDiceFunction,
         TagFunction,
         QuickTagFunction,
-        TerritoryFunction
+        TerritoryFunction,
+        AlignmentFunction
     )
 
     val commandMap = mutableMapOf<String, FunctionBase>()

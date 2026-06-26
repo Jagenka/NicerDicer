@@ -49,20 +49,8 @@ object Database {
                         // NEW: tags table (name uses NOCASE collation so comparisons/uniqueness ignore case)
                         stmt.execute("CREATE TABLE IF NOT EXISTS tags (name TEXT PRIMARY KEY COLLATE NOCASE, owner TEXT, content TEXT);")
 
-                        // new: territory owners/colors (one color per owner PER GUILD). color stored as text like "#RRGGBB"
-                        stmt.execute(
-                            """
-                            CREATE TABLE IF NOT EXISTS territory_owners (
-                                guild TEXT NOT NULL,
-                                owner TEXT NOT NULL,
-                                color TEXT,
-                                PRIMARY KEY (guild, owner)
-                            );
-                            """.trimIndent()
-                        )
-
-                        // new: territories table: (guild, id) identifies a territory,
-                        // name is unique per guild (case-insensitive), owner references owner id (nullable)
+                        // new: territories table with color (White, Yellow, Purple, Turquoise, DarkGray)
+                        // (guild, id) identifies a territory, name is unique per guild (case-insensitive), owner references owner id (nullable)
                         stmt.execute(
                             """
                             CREATE TABLE IF NOT EXISTS territories (
@@ -70,8 +58,30 @@ object Database {
                                 id INTEGER NOT NULL,
                                 name TEXT COLLATE NOCASE,
                                 owner TEXT,
+                                color TEXT,
                                 PRIMARY KEY (guild, id),
                                 UNIQUE (guild, name)
+                            );
+                            """.trimIndent()
+                        )
+
+                        // new: alignment table (userId is PRIMARY KEY, stores user alignment)
+                        stmt.execute(
+                            """
+                            CREATE TABLE IF NOT EXISTS alignment (
+                                userId TEXT PRIMARY KEY,
+                                order TEXT NOT NULL,
+                                intent TEXT NOT NULL
+                            );
+                            """.trimIndent()
+                        )
+
+                        // new: permissions table to store role identifiers per guild
+                        stmt.execute(
+                            """
+                            CREATE TABLE IF NOT EXISTS permissions (
+                                guild TEXT PRIMARY KEY,
+                                mod TEXT
                             );
                             """.trimIndent()
                         )
@@ -631,65 +641,41 @@ object Database {
 
     // --- Territory helpers ---
 
+    // --- Territory helpers ---
+
     /**
-     * Set or update the caller's color for a specific guild. Returns true if set, false on invalid color or black / error.
-     */
-    fun setOwnerColor(ownerId: String, guildId: String, colorHex: String): Boolean {
-        init()
-        val normalized = colorHex.trim().let { if (it.startsWith("#")) it.uppercase() else "#${it.uppercase()}" }
-        if (normalized.equals("#000000", true)) {
-            println("Database.setOwnerColor: black (#000000) is reserved and cannot be used.")
-            return false
-        }
-        // validate hex format #RRGGBB
-        if (!Regex("^#([A-F0-9]{6})$").matches(normalized)) {
-            println("Database.setOwnerColor: invalid color format '$colorHex'")
-            return false
-        }
-        try {
-            connect().use { conn ->
-                conn.prepareStatement(
-                    "INSERT INTO territory_owners(guild,owner,color) VALUES(?,?,?) ON CONFLICT(guild,owner) DO UPDATE SET color=excluded.color"
-                ).use { ps ->
-                    ps.setString(1, guildId)
-                    ps.setString(2, ownerId)
-                    ps.setString(3, normalized)
-                    ps.executeUpdate()
-                }
-            }
-            println("Database.setOwnerColor: set color $normalized for owner $ownerId in guild $guildId")
-            return true
-        } catch (e: Exception) {
-            println("Database.setOwnerColor failed for owner '$ownerId' guild='$guildId': ${e.message}")
-            e.printStackTrace()
-            return false
-        }
+    * Map a territory type to its predefined color.
+    */
+    private fun getColorForType(type: String?): String {
+       return when (type?.lowercase()) {
+           "good" -> "Yellow"
+           "evil" -> "Purple"
+           "quest" -> "Turquoise"
+           "challenged" -> "DarkGray"
+           else -> "White"  // default for unclaimed
+       }
     }
 
-    fun getOwnerColor(ownerId: String, guildId: String): String? {
-        init()
-        try {
-            connect().use { conn ->
-                conn.prepareStatement("SELECT color FROM territory_owners WHERE owner = ? AND guild = ?").use { ps ->
-                    ps.setString(1, ownerId)
-                    ps.setString(2, guildId)
-                    ps.executeQuery().use { rs ->
-                        if (rs.next()) return rs.getString("color")
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            println("Database.getOwnerColor failed for owner '$ownerId' guild='$guildId': ${e.message}")
-            e.printStackTrace()
-        }
-        return null
+    /**
+    * Convert color name to hex for rendering (#RRGGBB).
+    */
+    private fun getHexForColor(color: String): String {
+       return when (color) {
+           "White" -> "#FFFFFF"
+           "Yellow" -> "#FFFF00"
+           "Purple" -> "#800080"
+           "Turquoise" -> "#40E0D0"
+           "DarkGray" -> "#A9A9A9"
+           else -> "#FFFFFF"
+       }
     }
 
     /**
      * Claim a territory by numeric id within a guild. Only allowed if territory is unowned or already owned by caller.
+     * Type can be "Good", "Evil", or "Quest"; otherwise defaults to unclaimed (White).
      * Returns true on success.
      */
-    fun claimTerritory(id: Int, ownerId: String, guildId: String, optionalName: String? = null): Boolean {
+    fun claimTerritory(id: Int, ownerId: String, guildId: String, optionalName: String? = null, type: String? = null): Boolean {
         init()
         try {
             connect().use { conn ->
@@ -706,29 +692,32 @@ object Database {
                         }
                     }
                 }
+                val color = getColorForType(type)
                 // ensure a row exists (create or update) for this guild
                 if (optionalName != null) {
                     conn.prepareStatement(
-                        "INSERT INTO territories(guild,id,name,owner) VALUES(?,?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner=excluded.owner, name=COALESCE(excluded.name,territories.name)"
+                        "INSERT INTO territories(guild,id,name,owner,color) VALUES(?,?,?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner=excluded.owner, name=COALESCE(excluded.name,territories.name), color=excluded.color"
                     ).use { ps ->
                         ps.setString(1, guildId)
                         ps.setInt(2, id)
                         ps.setString(3, optionalName)
                         ps.setString(4, ownerId)
+                        ps.setString(5, color)
                         ps.executeUpdate()
                     }
                 } else {
                     conn.prepareStatement(
-                        "INSERT INTO territories(guild,id,owner) VALUES(?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner=excluded.owner"
+                        "INSERT INTO territories(guild,id,owner,color) VALUES(?,?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner=excluded.owner, color=excluded.color"
                     ).use { ps ->
                         ps.setString(1, guildId)
                         ps.setInt(2, id)
                         ps.setString(3, ownerId)
+                        ps.setString(4, color)
                         ps.executeUpdate()
                     }
                 }
             }
-            println("Database.claimTerritory: owner $ownerId claimed territory $id in guild $guildId")
+            println("Database.claimTerritory: owner $ownerId claimed territory $id in guild $guildId with type $type")
             return true
         } catch (e: Exception) {
             println("Database.claimTerritory failed for id=$id owner=$ownerId guild=$guildId: ${e.message}")
@@ -739,7 +728,7 @@ object Database {
 
     /**
      * Release a territory in a specific guild. Only allowed if caller is owner.
-     * Resets the territory name to default ("Territory <id>") when released.
+     * Resets the territory name to default ("Territory <id>") and color to "White" (unclaimed) when released.
      */
     fun releaseTerritory(id: Int, ownerId: String, guildId: String): Boolean {
         init()
@@ -764,12 +753,13 @@ object Database {
                         }
                     }
                 }
-                // Reset owner and name to default
+                // Reset owner, name to default, and color to White (unclaimed)
                 val defaultName = "Territory $id"
-                conn.prepareStatement("UPDATE territories SET owner = NULL, name = ? WHERE guild = ? AND id = ?").use { ps ->
+                conn.prepareStatement("UPDATE territories SET owner = NULL, name = ?, color = ? WHERE guild = ? AND id = ?").use { ps ->
                     ps.setString(1, defaultName)
-                    ps.setString(2, guildId)
-                    ps.setInt(3, id)
+                    ps.setString(2, "White")
+                    ps.setString(3, guildId)
+                    ps.setInt(4, id)
                     ps.executeUpdate()
                 }
             }
@@ -777,6 +767,36 @@ object Database {
             return true
         } catch (e: Exception) {
             println("Database.releaseTerritory failed for id=$id owner=$ownerId guild=$guildId: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    /**
+     * Force-release a territory (used by moderators). Does not check ownership.
+     */
+    fun releaseTerritoryByModerator(id: Int, guildId: String): Boolean {
+        init()
+        try {
+            connect().use { conn ->
+                // Reset owner, name to default, and color to White (unclaimed)
+                val defaultName = "Territory $id"
+                conn.prepareStatement("UPDATE territories SET owner = NULL, name = ?, color = ? WHERE guild = ? AND id = ?").use { ps ->
+                    ps.setString(1, defaultName)
+                    ps.setString(2, "White")
+                    ps.setString(3, guildId)
+                    ps.setInt(4, id)
+                    val updated = ps.executeUpdate()
+                    if (updated == 0) {
+                        println("Database.releaseTerritoryByModerator: territory $id in guild $guildId does not exist.")
+                        return false
+                    }
+                }
+            }
+            println("Database.releaseTerritoryByModerator: territory $id in guild $guildId force-released by moderator.")
+            return true
+        } catch (e: Exception) {
+            println("Database.releaseTerritoryByModerator failed for id=$id guild=$guildId: ${e.message}")
             e.printStackTrace()
             return false
         }
@@ -793,11 +813,12 @@ object Database {
             connect().use { conn ->
                 conn.autoCommit = false
                 try {
-                    conn.prepareStatement("INSERT OR IGNORE INTO territories(guild,id,name,owner) VALUES(?,?,?,NULL)").use { ps ->
+                    conn.prepareStatement("INSERT OR IGNORE INTO territories(guild,id,name,owner,color) VALUES(?,?,?,NULL,?)").use { ps ->
                         for (id in ids) {
                             ps.setString(1, guildId)
                             ps.setInt(2, id)
                             ps.setString(3, "Territory $id")
+                            ps.setString(4, "White")
                             ps.addBatch()
                         }
                         ps.executeBatch()
@@ -879,7 +900,41 @@ object Database {
     }
 
     /**
-     * List all territories for a given guild with owner and owner's color (if present).
+     * Set a territory to "Challenged" color. Can be called by anyone.
+     * Returns true on success.
+     */
+    fun challengeTerritory(id: Int, guildId: String): Boolean {
+        init()
+        try {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT id FROM territories WHERE guild = ? AND id = ?").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setInt(2, id)
+                    ps.executeQuery().use { rs ->
+                        if (!rs.next()) {
+                            println("Database.challengeTerritory: territory $id in guild $guildId does not exist.")
+                            return false
+                        }
+                    }
+                }
+                conn.prepareStatement("UPDATE territories SET color = ? WHERE guild = ? AND id = ?").use { ps ->
+                    ps.setString(1, "DarkGray")
+                    ps.setString(2, guildId)
+                    ps.setInt(3, id)
+                    ps.executeUpdate()
+                }
+            }
+            println("Database.challengeTerritory: territory $id in guild $guildId marked as challenged.")
+            return true
+        } catch (e: Exception) {
+            println("Database.challengeTerritory failed for id=$id guild=$guildId: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    /**
+     * List all territories for a given guild with color.
      */
     fun listTerritories(guildId: String): List<TerritoryEntry> {
         init()
@@ -888,9 +943,8 @@ object Database {
             connect().use { conn ->
                 conn.prepareStatement(
                     """
-                    SELECT t.id as id, t.name as name, t.owner as owner, o.color as color
+                    SELECT t.id as id, t.name as name, t.owner as owner, t.color as color
                     FROM territories t
-                    LEFT JOIN territory_owners o ON o.guild = t.guild AND o.owner = t.owner
                     WHERE t.guild = ?
                     ORDER BY t.id
                     """.trimIndent()
@@ -903,7 +957,7 @@ object Database {
                                     id = rs.getInt("id"),
                                     name = rs.getString("name") ?: "Territory ${rs.getInt("id")}",
                                     owner = rs.getString("owner"),
-                                    color = rs.getString("color")
+                                    color = rs.getString("color") ?: "White"
                                 )
                             )
                         }
@@ -916,4 +970,108 @@ object Database {
         }
         return res
     }
+
+    // --- Alignment helpers ---
+
+    /**
+     * Set or update a user's alignment. Returns true on success.
+     */
+    fun setAlignment(userId: String, order: String, intent: String): Boolean {
+        init()
+        val validOrders = listOf("Lawful", "Neutral", "Chaotic")
+        val validIntents = listOf("Good", "Neutral", "Evil")
+        
+        if (order !in validOrders || intent !in validIntents) {
+            println("Database.setAlignment: invalid order '$order' or intent '$intent'")
+            return false
+        }
+        
+        try {
+            connect().use { conn ->
+                conn.prepareStatement(
+                    "INSERT INTO alignment(userId, order, intent) VALUES(?, ?, ?) ON CONFLICT(userId) DO UPDATE SET order=excluded.order, intent=excluded.intent"
+                ).use { ps ->
+                    ps.setString(1, userId)
+                    ps.setString(2, order)
+                    ps.setString(3, intent)
+                    ps.executeUpdate()
+                }
+            }
+            println("Database.setAlignment: set alignment for user $userId to $order $intent")
+            return true
+        } catch (e: Exception) {
+            println("Database.setAlignment failed for user '$userId': ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    /**
+     * Get a user's alignment. Returns AlignmentEntry or null if not found.
+     */
+    fun getAlignment(userId: String): AlignmentEntry? {
+        init()
+        try {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT userId, order, intent FROM alignment WHERE userId = ?").use { ps ->
+                    ps.setString(1, userId)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            return AlignmentEntry(
+                                userId = rs.getString("userId"),
+                                order = rs.getString("order"),
+                                intent = rs.getString("intent")
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("Database.getAlignment failed for user '$userId': ${e.message}")
+            e.printStackTrace()
+        }
+        return null
+    }
+
+    // --- Permissions helpers ---
+
+    fun setModRole(guildId: String, roleId: String): Boolean {
+        init()
+        try {
+            connect().use { conn ->
+                conn.prepareStatement(
+                    "INSERT INTO permissions(guild, mod) VALUES(?, ?) ON CONFLICT(guild) DO UPDATE SET mod=excluded.mod"
+                ).use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, roleId)
+                    ps.executeUpdate()
+                }
+            }
+            println("Database.setModRole: set mod role $roleId for guild $guildId")
+            return true
+        } catch (e: Exception) {
+            println("Database.setModRole failed for guild '$guildId' role='$roleId': ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    fun getModRole(guildId: String): String? {
+        init()
+        try {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT mod FROM permissions WHERE guild = ?").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next()) return rs.getString("mod")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("Database.getModRole failed for guild '$guildId': ${e.message}")
+            e.printStackTrace()
+        }
+        return null
+    }
+
 }

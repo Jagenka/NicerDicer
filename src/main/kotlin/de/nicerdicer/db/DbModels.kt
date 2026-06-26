@@ -46,5 +46,12 @@ data class TerritoryEntry(
     val id: Int,
     val name: String,
     val owner: String?,   // user id as string, null if unowned
-    val color: String?    // owner's color hex (e.g. "#RRGGBB") or null
+    val color: String?    // territory color: "White" (unclaimed), "Yellow" (Good), "Purple" (Evil), "Turquoise" (Quest), "DarkGray" (Challenged)
+)
+
+// new: alignment model
+data class AlignmentEntry(
+    val userId: String,   // user id as string
+    val order: String,    // "Lawful", "Neutral", or "Chaotic"
+    val intent: String    // "Good", "Neutral", or "Evil"
 )

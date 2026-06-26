@@ -25,7 +25,6 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
     var kord: Kord? = null
 
     // Map of territory id -> starting pixel coordinate (x,y) inside the region.
-    // Replace / extend these placeholder coordinates with your real coordinates.
     private val TERRITORY_COORDS: Map<Int, Pair<Int, Int>> = mapOf(
         1 to (200 to 150),
         2 to (300 to 300),
@@ -49,31 +48,42 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
         20 to (1000 to 750)
     )
 
+    // Predefined colors
+    private val COLOR_UNCLAIMED = "#FFFFFF"  // White
+    private val COLOR_GOOD = "#FFFF00"       // Yellow
+    private val COLOR_EVIL = "#800080"       // Purple
+    private val COLOR_QUEST = "#40E0D0"      // Turquoise
+    private val COLOR_CHALLENGED = "#A9A9A9" // Dark Gray
+
     override suspend fun prepare(kord: Kord)
     {
-        this.kord = kord
-        // register command with subcommands: claim, release, list, map, color, rename
-        kord.createGlobalChatInputCommand(name, description) {
-            subCommand("claim", "Claim a territory by its numeric id") {
-                string("id", "Territory id (number)") { required = true }
-                string("name", "Optional: give this territory a custom name") { required = false }
-            }
-            subCommand("release", "Release a territory you own") {
-                string("id", "Territory id (number)") { required = true }
-            }
-            subCommand("rename", "Rename a territory you own") {
-                string("id", "Territory id (number)") { required = true }
-                string("name", "New territory name") { required = true }
-            }
-            subCommand("list", "List all territories and owners") { }
-            subCommand("map", "Show current map image with colored territories") { }
-            subCommand("color", "Set your personal territory color (hex #RRGGBB)") {
-                string("hex", "Color in #RRGGBB format") { required = true }
-            }
-        }
+       this.kord = kord
+       // register command with subcommands: claim, release, list, map, challenge, rename
+       kord.createGlobalChatInputCommand(name, description) {
+           subCommand("claim", "Claim a territory (type inferred from your alignment)") {
+               string("id", "Territory id (number)") { required = true }
+               string("name", "Optional: give this territory a custom name") { required = false }
+           }
+           subCommand("release", "Release a territory you own (mods can release any)") {
+               string("id", "Territory id (number)") { required = true }
+           }
+           subCommand("quest", "Claim a territory for a Quest (mods only)") {
+               string("id", "Territory id (number)") { required = true }
+               string("name", "Optional: give this territory a custom name") { required = false }
+           }
+           subCommand("challenge", "Mark a territory as challenged") {
+               string("id", "Territory id (number)") { required = true }
+           }
+           subCommand("rename", "Rename a territory you own") {
+               string("id", "Territory id (number)") { required = true }
+               string("name", "New territory name") { required = true }
+           }
+           subCommand("list", "List all territories and owners") { }
+           subCommand("map", "Show current map image with colored territories") { }
+       }
 
-        // ensure DB ready and ensure all configured territories exist with defaults
-        Database.init()
+       // ensure DB ready and ensure all configured territories exist with defaults
+       Database.init()
     }
 
     override suspend fun execute(event: ChatInputCommandInteractionCreateEvent)
@@ -108,6 +118,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     val idText = event.interaction.command.strings["id"]?.trim().orEmpty()
                     val nameOpt = event.interaction.command.strings["name"]?.trim()
                     val id = idText.toIntOrNull()
+                    
                     if (id == null)
                     {
                         response.respond { content = "Usage: /territory claim id:<number> [name:optional]" }
@@ -122,14 +133,33 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
 
                     val ownerId = event.interaction.user.id.toString()
-                    val ownerColor = Database.getOwnerColor(ownerId, guildIdVal)
-                    if (ownerColor == null)
+                    
+                    // Get user's alignment to determine territory type
+                    val alignment = Database.getAlignment(ownerId)
+                    if (alignment == null)
                     {
-                        response.respond { content = "You have not set a color yet. Use /territory color hex:#RRGGBB to set your color first." }
+                        response.respond { content = "You must set your alignment first. Use /alignment set to set your alignment." }
                         return
                     }
+
+                    // Determine type based on alignment
+                    val type = when {
+                        alignment.intent == "Good" -> "Good"
+                        alignment.intent == "Evil" -> "Evil"
+                        alignment.intent == "Neutral" && alignment.order == "Lawful" -> "Good"
+                        alignment.intent == "Neutral" && alignment.order == "Chaotic" -> "Evil"
+                        alignment.intent == "Neutral" && alignment.order == "Neutral" -> {
+                            response.respond { content = "True Neutral cannot claim territories." }
+                            return
+                        }
+                        else -> {
+                            response.respond { content = "Could not determine territory type from alignment." }
+                            return
+                        }
+                    }
+
                     // Check ownership constraints in DB and claim
-                    val ok = Database.claimTerritory(id, ownerId, guildIdVal, nameOpt)
+                    val ok = Database.claimTerritory(id, ownerId, guildIdVal, nameOpt, type)
                     if (!ok)
                     {
                         response.respond { content = "Failed to claim territory $id. It may already be owned by someone else." }
@@ -143,7 +173,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                         val outPath = renderFullMapWithClaims(guildIdVal)
                         val f = File(outPath)
                         response.respond {
-                            content = "Territory $id claimed and map updated."
+                            content = "Territory $id claimed as $type (from your ${alignment.order} ${alignment.intent} alignment) and map updated."
                             addFile(f.toPath())
                         }
                     } catch (e: Exception)
@@ -172,7 +202,9 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
 
                     val ownerId = event.interaction.user.id.toString()
-                    val ok = Database.releaseTerritory(id, ownerId, guildIdVal)
+                    // allow moderators to release any territory
+                    val isMod = RolePermissionsFunction.isModerator(guildIdVal, event.interaction.user)
+                    val ok = if (isMod) Database.releaseTerritoryByModerator(id, guildIdVal) else Database.releaseTerritory(id, ownerId, guildIdVal)
                     if (!ok)
                     {
                         response.respond { content = "Failed to release territory $id. It may not be owned by you or may not exist." }
@@ -193,6 +225,94 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                         println("TerritoryFunction.execute: no base map found or failed generating map after release for id $id: ${e.message}")
                         e.printStackTrace()
                         response.respond { content = "Territory released, but something went wrong with map generation." }
+                    }
+                }
+
+                "quest" ->
+                {
+                    val idText = event.interaction.command.strings["id"]?.trim().orEmpty()
+                    val nameOpt = event.interaction.command.strings["name"]?.trim()
+                    val id = idText.toIntOrNull()
+                    if (id == null)
+                    {
+                        response.respond { content = "Usage: /territory quest id:<number> [name:optional]" }
+                        return
+                    }
+
+                    if (!TERRITORY_COORDS.containsKey(id))
+                    {
+                        response.respond { content = "Territory $id is not managed by the map." }
+                        return
+                    }
+
+                    // Only moderators can use this
+                    val isMod = RolePermissionsFunction.isModerator(guildIdVal, event.interaction.user)
+                    if (!isMod)
+                    {
+                        response.respond { content = "Only moderators can assign quest territories." }
+                        return
+                    }
+
+                    val ownerId = event.interaction.user.id.toString()
+                    val ok = Database.claimTerritory(id, ownerId, guildIdVal, nameOpt, "Quest")
+                    if (!ok)
+                    {
+                        response.respond { content = "Failed to claim territory $id as a quest. It may already be owned by someone else." }
+                        return
+                    }
+
+                    try
+                    {
+                        val outPath = renderFullMapWithClaims(guildIdVal)
+                        val f = File(outPath)
+                        response.respond {
+                            content = "Territory $id claimed as Quest by moderator and map updated."
+                            addFile(f.toPath())
+                        }
+                    } catch (e: Exception)
+                    {
+                        println("TerritoryFunction.execute: failed generating map after quest claim for id $id: ${e.message}")
+                        e.printStackTrace()
+                        response.respond { content = "Territory claimed as quest, but something went wrong with map generation." }
+                    }
+                }
+
+                "challenge" ->
+                {
+                    val idText = event.interaction.command.strings["id"]?.trim().orEmpty()
+                    val id = idText.toIntOrNull()
+                    if (id == null)
+                    {
+                        response.respond { content = "Usage: /territory challenge id:<number>" }
+                        return
+                    }
+
+                    if (!TERRITORY_COORDS.containsKey(id))
+                    {
+                        response.respond { content = "Territory $id is not managed by the map." }
+                        return
+                    }
+
+                    val ok = Database.challengeTerritory(id, guildIdVal)
+                    if (!ok)
+                    {
+                        response.respond { content = "Failed to challenge territory $id." }
+                        return
+                    }
+
+                    try
+                    {
+                        val outPath = renderFullMapWithClaims(guildIdVal)
+                        val f = File(outPath)
+                        response.respond {
+                            content = "Territory $id marked as challenged and map updated."
+                            addFile(f.toPath())
+                        }
+                    } catch (e: Exception)
+                    {
+                        println("TerritoryFunction.execute: failed generating map after challenge for id $id: ${e.message}")
+                        e.printStackTrace()
+                        response.respond { content = "Territory challenged, but something went wrong with map generation." }
                     }
                 }
 
@@ -242,12 +362,12 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                                     event.interaction.data.guildId.value,
                                     Snowflake(t.owner)
                                 ).box()
-                            } ${"Color:".bold()} ${t.color?.box() ?: "none".box()}"
+                            } ${"Color:".bold()} ${(t.color ?: "White").box()}"
                         } catch (e: Exception)
                         {
                             println("TerritoryFunction.list: getMemberName failed: ${e.message}")
                             e.printStackTrace()
-                            "${"Owner:".bold()} ${t.owner.box()} ${"Color:".bold()} ${t.color?.box() ?: "none".box()}"
+                            "${"Owner:".bold()} ${t.owner.box()} ${"Color:".bold()} ${(t.color ?: "White").box()}"
                         }
                         sb.append("ID ${t.id}: ${t.name} - $ownerDesc\n")
                     }
@@ -273,23 +393,9 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
                 }
 
-                "color" ->
-                {
-                    val hex = event.interaction.command.strings["hex"]?.trim().orEmpty()
-                    if (hex.isBlank())
-                    {
-                        response.respond { content = "Usage: /territory color hex:#RRGGBB" }
-                        return
-                    }
-                    val ownerId = event.interaction.user.id.toString()
-                    val ok = Database.setOwnerColor(ownerId, guildIdVal, hex)
-                    if (ok) response.respond { content = "Your color was set to ${hex.trim()}." }
-                    else response.respond { content = "Failed to set color. Ensure format is #RRGGBB and color is not black (#000000)." }
-                }
-
                 else ->
                 {
-                    response.respond { content = "Unknown subcommand. Use claim/release/rename/list/map/color." }
+                    response.respond { content = "Unknown subcommand. Use claim/release/challenge/rename/list/map." }
                 }
             }
         } catch (e: Exception)
@@ -315,9 +421,10 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
         {
             val coord = TERRITORY_COORDS[t.id]
             val color = t.color
-            if (coord != null && color != null && t.owner != null)
+            if (coord != null && color != null)
             {
-                floodFillBounded(img, coord.first, coord.second, parseHexColor(color))
+                val hexColor = getHexForColor(color)
+                floodFillBounded(img, coord.first, coord.second, parseHexColor(hexColor))
             }
         }
 
@@ -326,6 +433,20 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
         val out = File(outDir, "SmallHavenMap_all_claims_${guildId}.png")
         ImageIO.write(img, "PNG", out)
         return out.absolutePath
+    }
+
+    /**
+     * Convert color name to hex for rendering (#RRGGBB).
+     */
+    private fun getHexForColor(color: String): String {
+        return when (color) {
+            "White" -> COLOR_UNCLAIMED
+            "Yellow" -> COLOR_GOOD
+            "Purple" -> COLOR_EVIL
+            "Turquoise" -> COLOR_QUEST
+            "DarkGray" -> COLOR_CHALLENGED
+            else -> COLOR_UNCLAIMED
+        }
     }
 
     // parse #RRGGBB -> ARGB int

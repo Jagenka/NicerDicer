@@ -1,5 +1,7 @@
 package de.nicerdicer.util
 
+import de.nicerdicer.db.Database
+import de.nicerdicer.functions.RolePermissionsFunction.kord
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.entity.User
@@ -40,5 +42,15 @@ object KordUtil {
             }
         }
         return "Unknown User"
+    }
+
+    /**
+     * Check whether the given user is a moderator for the guild (has the configured mod role).
+     */
+    suspend fun isModerator(kord: Kord?, guildId: String, user: User): Boolean {
+        val modRole = Database.getModRole(guildId) ?: return false
+        val g = kord?.getGuild(Snowflake(guildId)) ?: return false
+        val member = g.getMember(user.id)
+        return member.roleIds.contains(Snowflake(modRole))
     }
 }
