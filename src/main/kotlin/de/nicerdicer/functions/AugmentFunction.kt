@@ -10,8 +10,6 @@ import dev.kord.rest.builder.message.EmbedBuilder
 
 object AugmentFunction : FunctionBase("augment", "Rolls an augment.")
 {
-    // no local caching: fetch from DB in execute()
-
     override suspend fun prepare(kord: Kord)
     {
         println("Preparing augments...")

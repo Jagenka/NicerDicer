@@ -27,8 +27,8 @@ object QuickTagFunction : FunctionBase("t", "Gets a tag!")
                 return
             }
 
-            // ensure DB ready and fetch tag
             Database.init()
+
             val tag = try {
                 Database.getTag(name)
             } catch (e: Exception) {

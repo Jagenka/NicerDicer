@@ -27,7 +27,6 @@ object RolePermissionsFunction : FunctionBase("permissions", "Everything for rol
 
     override suspend fun execute(event: ChatInputCommandInteractionCreateEvent)
     {
-        // ensure guild
         val guildIdVal = event.interaction.data.guildId.value?.toString()
         if (guildIdVal == null)
         {
@@ -38,7 +37,6 @@ object RolePermissionsFunction : FunctionBase("permissions", "Everything for rol
         val response = event.interaction.deferPublicResponse()
         try
         {
-            // Only allow guild owner (admin) to use this command
             val guild = kord?.getGuild(Snowflake(guildIdVal))
             val callerId = event.interaction.user.id.toString()
             if (guild == null || callerId != guild.ownerId.toString())
@@ -59,7 +57,6 @@ object RolePermissionsFunction : FunctionBase("permissions", "Everything for rol
                         return
                     }
 
-                    // extract numeric role id from mention or plain id
                     val regex = Regex("<@&?(\\d+)>?")
                     val match = regex.find(roleParam)
                     val roleId = match?.groups?.get(1)?.value ?: roleParam.filter { it.isDigit() }

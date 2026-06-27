@@ -44,13 +44,9 @@ object Database {
                         stmt.execute("CREATE TABLE IF NOT EXISTS life_perks (card TEXT, name TEXT, text TEXT, meaning TEXT);")
                         stmt.execute("CREATE TABLE IF NOT EXISTS power_flaws (card TEXT, name TEXT, text TEXT, meaning TEXT);")
                         stmt.execute("CREATE TABLE IF NOT EXISTS life_flaws (card TEXT, name TEXT, text TEXT, meaning TEXT);")
-                        // normalized wounds table (store full structure: type, severity, location, name, description)
                         stmt.execute("CREATE TABLE IF NOT EXISTS wounds (wound_type TEXT, wound_severity TEXT, wound_location TEXT, wound_name TEXT, wound_description TEXT);")
-                        // NEW: tags table (name uses NOCASE collation so comparisons/uniqueness ignore case)
                         stmt.execute("CREATE TABLE IF NOT EXISTS tags (name TEXT PRIMARY KEY COLLATE NOCASE, owner TEXT, content TEXT);")
 
-                        // new: territories table with color (White, Yellow, Purple, Turquoise, DarkGray)
-                        // (guild, id) identifies a territory, name is unique per guild (case-insensitive), owner references owner id (nullable)
                         stmt.execute(
                             """
                             CREATE TABLE IF NOT EXISTS territories (
@@ -65,7 +61,6 @@ object Database {
                             """.trimIndent()
                         )
 
-                        // new: alignment table (guild,userId) identifies an alignment
                         stmt.execute(
                             """
                             CREATE TABLE IF NOT EXISTS alignment (
@@ -78,7 +73,6 @@ object Database {
                             """.trimIndent()
                         )
 
-                        // new: permissions table to store role identifiers per guild
                         stmt.execute(
                             """
                             CREATE TABLE IF NOT EXISTS permissions (
@@ -170,6 +164,8 @@ object Database {
             }
         }
     }
+
+    //region CSV Helpers
 
     private fun fillSimpleFourColumnCsv(conn: Connection, tableName: String, resourcePath: String) {
         fillTableIfEmpty(conn, tableName, resourcePath) { headers, row ->
@@ -296,7 +292,6 @@ object Database {
         return stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
     }
 
-    // parse wounds.json into normalized WoundEntry rows (no external JSON dependency)
     private fun parseWoundsFromJsonResource(resourcePath: String): List<WoundEntry> {
         val text = try {
             readResourceAsText(resourcePath)
@@ -306,7 +301,6 @@ object Database {
         }
         val results = mutableListOf<WoundEntry>()
 
-        // find top-level keys (wound types) and extract their object blocks
         val topKeyPattern = Regex("\"([^\"]+)\"\\s*:\\s*\\{")
         val matcher = topKeyPattern.findAll(text)
         for (m in matcher) {
@@ -315,7 +309,6 @@ object Database {
             if (braceStart < 0) continue
             val (typeObj, _) = extractObjectBlock(text, braceStart) ?: continue
 
-            // find severity blocks inside typeObj
             val sevMatches = topKeyPattern.findAll(typeObj)
             for (sm in sevMatches) {
                 val severityKey = sm.groupValues[1]
@@ -323,7 +316,6 @@ object Database {
                 if (sevBraceStart < 0) continue
                 val (sevObj, _) = extractObjectBlock(typeObj, sevBraceStart) ?: continue
 
-                // find location blocks inside sevObj
                 val locMatches = topKeyPattern.findAll(sevObj)
                 for (lm in locMatches) {
                     val locKey = lm.groupValues[1]
@@ -331,7 +323,6 @@ object Database {
                     if (locBraceStart < 0) continue
                     val (locObj, _) = extractObjectBlock(sevObj, locBraceStart) ?: continue
 
-                    // within locObj, wound entries are name: "description"
                     val entryPattern = Regex("(?s)\"([^\"]+)\"\\s*:\\s*\"(.*?)\"")
                     for (em in entryPattern.findAll(locObj)) {
                         val woundName = em.groupValues[1]
@@ -345,7 +336,6 @@ object Database {
         return results
     }
 
-    // returns Pair(substringOfObject, endIndex) or null; startIndex must point at '{'
     private fun extractObjectBlock(text: String, startIndex: Int): Pair<String, Int>? {
         var i = startIndex
         var depth = 0
@@ -377,7 +367,10 @@ object Database {
         return null
     }
 
-    // getters to fetch lists into memory for use by functions
+    //endregion
+
+    //region Data Getters
+
     fun getAugments(): List<AugmentEntry> {
         init()
         val list = mutableListOf<AugmentEntry>()
@@ -468,7 +461,9 @@ object Database {
         return list
     }
 
-    // --- Tag helpers (CRUD) ---
+    //endregion
+
+    //region Tag CRUD and Helpers
 
     /**
      * Create a tag. Returns true on success, false on failure (already exists or error).
@@ -641,9 +636,9 @@ object Database {
          return res
      }
 
-    // --- Territory helpers ---
+    //endregion
 
-    // --- Territory helpers ---
+    //region Color Helpers
 
     /**
     * Map a territory type to its predefined color.
@@ -671,6 +666,10 @@ object Database {
            else -> "#FFFFFF"
        }
     }
+
+    //endregion
+
+    //region Territory Helpers
 
     /**
      * Claim a territory by numeric id within a guild. Only allowed if territory is unowned or already owned by caller.
@@ -973,7 +972,9 @@ object Database {
         return res
     }
 
-    // --- Alignment helpers ---
+    //endregion
+
+    //region Alignment Helpers
 
     /**
      * Set or update a user's alignment for a guild. Returns true on success.
@@ -1038,7 +1039,9 @@ object Database {
         return null
     }
 
-    // --- Permissions helpers ---
+    //endregion
+
+    //region Permission Helpers
 
     fun setModRole(guildId: String, roleId: String): Boolean {
         init()
@@ -1079,4 +1082,5 @@ object Database {
         return null
     }
 
+    //endregion
 }

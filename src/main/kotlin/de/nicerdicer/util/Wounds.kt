@@ -7,7 +7,6 @@ import kotlinx.serialization.Serializable
 
 class Wounds
 {
-    // no in-memory catalogue anymore; queries DB on demand.
     init
     {
         println("Wounds: will query wounds from DB on demand.")
@@ -27,7 +26,6 @@ class Wounds
 
             val actualLocation = location ?: WoundLocation.roll()
 
-            // pre-filter rows for this wound type and map to parsed enums
             data class RowParsed(val name: String, val desc: String, val severity: WoundSeverity, val location: WoundLocation)
 
             val parsedRows = allRows.mapNotNull { row ->
@@ -47,11 +45,9 @@ class Wounds
                 }
             }
 
-            // helper to get candidate entries for a severity & location (include ANY entries)
             fun candidatesFor(sev: WoundSeverity): List<RowParsed> =
                 parsedRows.filter { it.severity == sev && (it.location == actualLocation || it.location == WoundLocation.ANY) }
 
-            // Critical: take first candidate (if any)
             repeat(c) {
                 val candidate = candidatesFor(WoundSeverity.CRITICAL)
                 if (candidate.isNotEmpty())
@@ -64,7 +60,6 @@ class Wounds
                 }
             }
 
-            // Moderate: pick randomly among candidates
             repeat(m) {
                 val candidate = candidatesFor(WoundSeverity.MODERATE)
                 if (candidate.isNotEmpty())
@@ -78,7 +73,6 @@ class Wounds
                 }
             }
 
-            // Lesser: pick randomly among candidates
             repeat(l) {
                 val candidate = candidatesFor(WoundSeverity.LESSER)
                 if (candidate.isNotEmpty())
@@ -99,7 +93,8 @@ class Wounds
         return woundEffects
     }
 
-    // parse helpers (tolerant mapping from DB strings to enums)
+    //region Parsers
+
     private fun parseWoundType(s: String?): WoundType?
     {
         if (s == null) return null
@@ -135,6 +130,8 @@ class Wounds
             else -> WoundLocation.entries.find { it.name.equals(s, ignoreCase = true) }
         }
     }
+
+    //endregion
 }
 
 @Serializable

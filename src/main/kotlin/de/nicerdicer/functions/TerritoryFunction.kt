@@ -53,42 +53,40 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
     private const val COLOR_GOOD = "#FFFF00"       // Yellow
     private const val COLOR_EVIL = "#800080"       // Purple
     private const val COLOR_QUEST = "#40E0D0"      // Turquoise
-    private const val COLOR_CHALLENGED = "#A9A9A9" // Dark Gray
+    private const val COLOR_CHALLENGED = "#DDDDDD" // Dark Gray
 
     override suspend fun prepare(kord: Kord)
     {
-       this.kord = kord
-       // register command with subcommands: claim, release, list, map, challenge, rename
-       kord.createGlobalChatInputCommand(name, description) {
-           subCommand("claim", "Claim a territory (type inferred from your alignment)") {
-               string("id", "Territory id (number)") { required = true }
-               string("name", "Optional: give this territory a custom name") { required = false }
-           }
-           subCommand("release", "Release a territory you own (mods can release any)") {
-               string("id", "Territory id (number)") { required = true }
-           }
-           subCommand("quest", "Claim a territory for a Quest (mods only)") {
-               string("id", "Territory id (number)") { required = true }
-               string("name", "Optional: give this territory a custom name") { required = false }
-           }
-           subCommand("challenge", "Mark a territory as challenged") {
-               string("id", "Territory id (number)") { required = true }
-           }
-           subCommand("rename", "Rename a territory you own") {
-               string("id", "Territory id (number)") { required = true }
-               string("name", "New territory name") { required = true }
-           }
-           subCommand("list", "List all territories and owners") { }
-           subCommand("map", "Show current map image with colored territories") { }
-       }
+        this.kord = kord
+        // register command with subcommands: claim, release, list, map, challenge, rename
+        kord.createGlobalChatInputCommand(name, description) {
+            subCommand("claim", "Claim a territory (type inferred from your alignment)") {
+                string("id", "Territory id (number)") { required = true }
+                string("name", "Optional: give this territory a custom name") { required = false }
+            }
+            subCommand("release", "Release a territory you own (mods can release any)") {
+                string("id", "Territory id (number)") { required = true }
+            }
+            subCommand("quest", "Claim a territory for a Quest (mods only)") {
+                string("id", "Territory id (number)") { required = true }
+                string("name", "Optional: give this territory a custom name") { required = false }
+            }
+            subCommand("challenge", "Mark a territory as challenged") {
+                string("id", "Territory id (number)") { required = true }
+            }
+            subCommand("rename", "Rename a territory you own") {
+                string("id", "Territory id (number)") { required = true }
+                string("name", "New territory name") { required = true }
+            }
+            subCommand("list", "List all territories and owners") { }
+            subCommand("map", "Show current map image with colored territories") { }
+        }
 
-       // ensure DB ready and ensure all configured territories exist with defaults
-       Database.init()
+        Database.init()
     }
 
     override suspend fun execute(event: ChatInputCommandInteractionCreateEvent)
     {
-        // ensure the command runs in a guild
         val guildIdVal = event.interaction.data.guildId.value?.toString()
         if (guildIdVal == null)
         {
@@ -96,7 +94,6 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
             return
         }
 
-        // ensure rows exist for this guild
         try
         {
             Database.initializeTerritories(TERRITORY_COORDS.keys, guildIdVal)
@@ -118,14 +115,13 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     val idText = event.interaction.command.strings["id"]?.trim().orEmpty()
                     val nameOpt = event.interaction.command.strings["name"]?.trim()
                     val id = idText.toIntOrNull()
-                    
+
                     if (id == null)
                     {
                         response.respond { content = "Usage: /territory claim id:<number> [name:optional]" }
                         return
                     }
 
-                    // only allow claiming territories that are present in the coordinate map
                     if (!TERRITORY_COORDS.containsKey(id))
                     {
                         response.respond { content = "Territory $id is not claimable. Only territories listed in the map coordinates may be claimed." }
@@ -133,7 +129,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
 
                     val ownerId = event.interaction.user.id.toString()
-                    
+
                     // Get user's alignment to determine territory type
                     val alignment = Database.getAlignment(guildIdVal, ownerId)
                     if (alignment == null)
@@ -143,22 +139,25 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
 
                     // Determine type based on alignment
-                    val type = when {
+                    val type = when
+                    {
                         alignment.intent == "Good" -> "Good"
                         alignment.intent == "Evil" -> "Evil"
                         alignment.intent == "Neutral" && alignment.alignmentOrder == "Lawful" -> "Good"
                         alignment.intent == "Neutral" && alignment.alignmentOrder == "Chaotic" -> "Evil"
-                        alignment.intent == "Neutral" && alignment.alignmentOrder == "Neutral" -> {
+                        alignment.intent == "Neutral" && alignment.alignmentOrder == "Neutral" ->
+                        {
                             response.respond { content = "True Neutral cannot claim territories." }
                             return
                         }
-                        else -> {
+
+                        else ->
+                        {
                             response.respond { content = "Could not determine territory type from alignment." }
                             return
                         }
                     }
 
-                    // Check ownership constraints in DB and claim
                     val ok = Database.claimTerritory(id, ownerId, guildIdVal, nameOpt, type)
                     if (!ok)
                     {
@@ -166,10 +165,8 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                         return
                     }
 
-                    // after Database.claimTerritory succeeded, always render full map with all claims
                     try
                     {
-                        // render full map with all claims for this guild and attach
                         val outPath = renderFullMapWithClaims(guildIdVal)
                         val f = File(outPath)
                         response.respond {
@@ -194,7 +191,6 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                         return
                     }
 
-                    // only allow releasing territories that are present in the coordinate map
                     if (!TERRITORY_COORDS.containsKey(id))
                     {
                         response.respond { content = "Territory $id is not managed by the map and cannot be released via this command." }
@@ -202,7 +198,6 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
 
                     val ownerId = event.interaction.user.id.toString()
-                    // allow moderators to release any territory
                     val isMod = RolePermissionsFunction.isModerator(guildIdVal, event.interaction.user)
                     val ok = if (isMod) Database.releaseTerritoryByModerator(id, guildIdVal) else Database.releaseTerritory(id, ownerId, guildIdVal)
                     if (!ok)
@@ -211,7 +206,6 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                         return
                     }
 
-                    // after successful release, render full map with all claims
                     try
                     {
                         val outPath = renderFullMapWithClaims(guildIdVal)
@@ -376,7 +370,6 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
 
                 "map" ->
                 {
-                    // produce current map image (base image with all owned territories recolored for this guild)
                     try
                     {
                         val outPath = renderFullMapWithClaims(guildIdVal)
@@ -438,8 +431,10 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
     /**
      * Convert color name to hex for rendering (#RRGGBB).
      */
-    private fun getHexForColor(color: String): String {
-        return when (color) {
+    private fun getHexForColor(color: String): String
+    {
+        return when (color)
+        {
             "White" -> COLOR_UNCLAIMED
             "Yellow" -> COLOR_GOOD
             "Purple" -> COLOR_EVIL
@@ -449,7 +444,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
         }
     }
 
-    // parse #RRGGBB -> ARGB int
+    // #RRGGBB -> ARGB int
     private fun parseHexColor(hex: String): Int
     {
         val h = hex.trim().let { if (it.startsWith("#")) it.substring(1) else it }
@@ -457,15 +452,17 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
         return 0xFF000000.toInt() or rgb
     }
 
-    // flood fill bounded by black border pixels (treated as barrier). Replaces pixels that match the starting pixel's color only.
+    /**
+     * Flood fill algorithm that fills a region in the image starting from (sx, sy) with the replacement color, bounded by black pixels.
+     */
     private fun floodFillBounded(img: BufferedImage, sx: Int, sy: Int, replacementArgb: Int)
     {
         val w = img.width
         val h = img.height
         if (sx !in 0 until w || sy !in 0 until h) throw IllegalArgumentException("Start coordinate out of bounds: $sx,$sy for image $w x $h")
 
-        val borderArgb = Color.BLACK.rgb // treat exact black pixels as barrier
-        val targetColor = img.getRGB(sx, sy) // only replace pixels equal to this color
+        val borderArgb = Color.BLACK.rgb                // Black is border color
+        val targetColor = img.getRGB(sx, sy)
         if (targetColor == replacementArgb) return
 
         val visited = Array(w) { BooleanArray(h) }
@@ -479,12 +476,12 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
             if (visited[x][y]) continue
             visited[x][y] = true
             val col = img.getRGB(x, y)
-            if (col == borderArgb) continue // never paint border
-            // Only paint if the pixel exactly matches the starting pixel's color
-            if (col != targetColor) continue
-            // paint pixel
+
+            if (col == borderArgb) continue     // Never paint border
+            if (col != targetColor) continue    // Only paint matching pixels
+
             img.setRGB(x, y, replacementArgb)
-            // push neighbors
+
             dq.addLast(x + 1 to y)
             dq.addLast(x - 1 to y)
             dq.addLast(x to y + 1)

@@ -10,8 +10,6 @@ import dev.kord.rest.builder.message.EmbedBuilder
 
 object PerkFunction : FunctionBase("perk", "Rolls perks.")
 {
-    // no local caching: fetch from DB in execute()
-
     override suspend fun prepare(kord: Kord)
     {
         println("Preparing perks...")

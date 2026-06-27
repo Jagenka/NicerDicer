@@ -28,6 +28,10 @@ object KordUtil {
         return user.effectiveName
     }
 
+    /**
+     * Returns the guild member's effective name when possible, otherwise falls back to user.effectiveName.
+     * Logs errors verbosely and never throws.
+     */
     suspend fun getMemberName(kord: Kord?, guildId: Snowflake?, userId: Snowflake): String {
         guildId?.let {
             try {

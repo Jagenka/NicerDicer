@@ -1,6 +1,5 @@
 package de.nicerdicer.db
 
-// Lightweight models used by function classes to represent DB rows.
 data class PerkEntry(
     val card: String,
     val name: String,
@@ -25,7 +24,6 @@ data class AugmentEntry(
     val trump: String
 )
 
-// model for normalized wounds extracted from wounds.json
 data class WoundEntry(
     val woundType: String,
     val woundSeverity: String,
@@ -34,25 +32,22 @@ data class WoundEntry(
     val woundDescription: String
 )
 
-// new: tag model
 data class TagEntry(
     val name: String,
-    val owner: String,   // user id as string
+    val owner: String,              // user id as string
     val content: String
 )
 
-// new: territory model
 data class TerritoryEntry(
     val id: Int,
     val name: String,
-    val owner: String?,   // user id as string, null if unowned
-    val color: String?    // territory color: "White" (unclaimed), "Yellow" (Good), "Purple" (Evil), "Turquoise" (Quest), "DarkGray" (Challenged)
+    val owner: String?,             // user id as string, null if unowned
+    val color: String?              // territory color: "White" (unclaimed), "Yellow" (Good), "Purple" (Evil), "Turquoise" (Quest), "DarkGray" (Challenged)
 )
 
-// new: alignment model
 data class AlignmentEntry(
     val guildId: String,
-    val userId: String,   // user id as string
-    val alignmentOrder: String,    // "Lawful", "Neutral", or "Chaotic"
-    val intent: String    // "Good", "Neutral", or "Evil"
+    val userId: String,             // user id as string
+    val alignmentOrder: String,     // "Lawful", "Neutral", or "Chaotic"
+    val intent: String              // "Good", "Neutral", or "Evil"
 )

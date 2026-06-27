@@ -21,6 +21,7 @@ import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 
 object Registry
 {
+    // Every command needs to be registered here to be available in the bot.
     val commands = listOf(
         RollFunction,
         ShutdownFunction,

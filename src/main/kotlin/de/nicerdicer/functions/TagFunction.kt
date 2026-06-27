@@ -27,11 +27,9 @@ object TagFunction : FunctionBase("tag", "Show given tag.")
             subCommand("get", "Show a tag") {
                 string("name", "Tag name") { required = true }
             }
-            subCommand("list", "List your tags") {
-                // no options
-            }
+            subCommand("list", "List your tags")
         }
-        // ensure DB ready
+
         Database.init()
     }
 
@@ -100,8 +98,8 @@ object TagFunction : FunctionBase("tag", "Show given tag.")
                     }
                 }
 
-                else ->
-                { // default / get <name>
+                else -> // Default: /tag get
+                {
                     val nameInput = (event.interaction.command.strings["name"] ?: subCommand).trim()
                     if (nameInput.isBlank()) {
                         response.respond { content = "Usage: /tag get name:<name>" }

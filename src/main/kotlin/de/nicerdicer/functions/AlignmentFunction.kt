@@ -2,7 +2,6 @@ package de.nicerdicer.functions
 
 import de.nicerdicer.db.Database
 import de.nicerdicer.util.bold
-import de.nicerdicer.util.box
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.respondPublic
 import dev.kord.core.behavior.interaction.response.respond
