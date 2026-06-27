@@ -81,6 +81,17 @@ object Database {
                             );
                             """.trimIndent()
                         )
+
+                        stmt.execute(
+                            """
+                            CREATE TABLE IF NOT EXISTS reputation (
+                                guild TEXT NOT NULL,
+                                userId TEXT NOT NULL,
+                                rep INTEGER NOT NULL,
+                                PRIMARY KEY (guild, userId)
+                            );
+                            """.trimIndent()
+                        )
                     }
 
                     fillTableIfEmpty(conn, "augments", "/Perklist - Augments.csv") { _, row ->
@@ -1077,6 +1088,57 @@ object Database {
             }
         } catch (e: Exception) {
             println("Database.getModRole failed for guild '$guildId': ${e.message}")
+            e.printStackTrace()
+        }
+        return null
+    }
+
+    //endregion
+
+    //region Reputation Helpers
+
+    fun addToReputation(guildId: String, userId: String, amount: Int): Boolean {
+        init()
+        try {
+            connect().use { conn ->
+                conn.prepareStatement(
+                    "INSERT INTO reputation(guild, userId, rep) VALUES(?, ?, ?) ON CONFLICT(guild, userId) DO UPDATE SET rep = reputation.rep + excluded.rep"
+                ).use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, userId)
+                    ps.setInt(3, amount)
+                    ps.executeUpdate()
+                }
+            }
+            println("Database.addToReputation: added $amount to reputation for user $userId in guild $guildId")
+            return true
+        } catch (e: Exception) {
+            println("Database.addToReputation failed for user '$userId' guild='$guildId': ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    fun getReputation(guildId: String, userId: String): ReputationEntry? {
+        init()
+        try {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT guild, userId, rep FROM reputation WHERE guild = ? AND userId = ?").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, userId)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            return ReputationEntry(
+                                guildId = rs.getString("guild"),
+                                userId = rs.getString("userId"),
+                                amount = rs.getInt("rep")
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("Database.getReputation failed for user '$userId' guild='$guildId': ${e.message}")
             e.printStackTrace()
         }
         return null

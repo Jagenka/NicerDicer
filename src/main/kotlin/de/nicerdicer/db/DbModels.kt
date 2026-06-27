@@ -51,3 +51,9 @@ data class AlignmentEntry(
     val alignmentOrder: String,     // "Lawful", "Neutral", or "Chaotic"
     val intent: String              // "Good", "Neutral", or "Evil"
 )
+
+data class ReputationEntry(
+    val guildId: String,
+    val userId: String,
+    val amount: Int
+)
