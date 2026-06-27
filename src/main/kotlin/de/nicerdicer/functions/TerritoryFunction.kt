@@ -135,7 +135,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     val ownerId = event.interaction.user.id.toString()
                     
                     // Get user's alignment to determine territory type
-                    val alignment = Database.getAlignment(ownerId)
+                    val alignment = Database.getAlignment(guildIdVal, ownerId)
                     if (alignment == null)
                     {
                         response.respond { content = "You must set your alignment first. Use /alignment set to set your alignment." }

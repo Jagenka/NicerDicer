@@ -51,6 +51,7 @@ data class TerritoryEntry(
 
 // new: alignment model
 data class AlignmentEntry(
+    val guildId: String,
     val userId: String,   // user id as string
     val order: String,    // "Lawful", "Neutral", or "Chaotic"
     val intent: String    // "Good", "Neutral", or "Evil"

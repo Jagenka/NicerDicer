@@ -65,13 +65,15 @@ object Database {
                             """.trimIndent()
                         )
 
-                        // new: alignment table (userId is PRIMARY KEY, stores user alignment)
+                        // new: alignment table (guild,userId) identifies an alignment
                         stmt.execute(
                             """
                             CREATE TABLE IF NOT EXISTS alignment (
-                                userId TEXT PRIMARY KEY,
-                                order TEXT NOT NULL,
-                                intent TEXT NOT NULL
+                                guild TEXT NOT NULL,
+                                userId TEXT NOT NULL,
+                                "order" TEXT NOT NULL,
+                                intent TEXT NOT NULL,
+                                PRIMARY KEY (guild, userId)
                             );
                             """.trimIndent()
                         )
@@ -974,9 +976,9 @@ object Database {
     // --- Alignment helpers ---
 
     /**
-     * Set or update a user's alignment. Returns true on success.
+     * Set or update a user's alignment for a guild. Returns true on success.
      */
-    fun setAlignment(userId: String, order: String, intent: String): Boolean {
+    fun setAlignment(guildId: String, userId: String, order: String, intent: String): Boolean {
         init()
         val validOrders = listOf("Lawful", "Neutral", "Chaotic")
         val validIntents = listOf("Good", "Neutral", "Evil")
@@ -989,35 +991,38 @@ object Database {
         try {
             connect().use { conn ->
                 conn.prepareStatement(
-                    "INSERT INTO alignment(userId, order, intent) VALUES(?, ?, ?) ON CONFLICT(userId) DO UPDATE SET order=excluded.order, intent=excluded.intent"
+                    "INSERT INTO alignment(guild, userId, order, intent) VALUES(?, ?, ?, ?) ON CONFLICT(guild, userId) DO UPDATE SET order=excluded.order, intent=excluded.intent"
                 ).use { ps ->
-                    ps.setString(1, userId)
-                    ps.setString(2, order)
-                    ps.setString(3, intent)
+                    ps.setString(1, guildId)
+                    ps.setString(2, userId)
+                    ps.setString(3, order)
+                    ps.setString(4, intent)
                     ps.executeUpdate()
                 }
             }
-            println("Database.setAlignment: set alignment for user $userId to $order $intent")
+            println("Database.setAlignment: set alignment for user $userId in guild $guildId to $order $intent")
             return true
         } catch (e: Exception) {
-            println("Database.setAlignment failed for user '$userId': ${e.message}")
+            println("Database.setAlignment failed for user '$userId' guild='$guildId': ${e.message}")
             e.printStackTrace()
             return false
         }
     }
 
     /**
-     * Get a user's alignment. Returns AlignmentEntry or null if not found.
+     * Get a user's alignment for a guild. Returns AlignmentEntry or null if not found.
      */
-    fun getAlignment(userId: String): AlignmentEntry? {
+    fun getAlignment(guildId: String, userId: String): AlignmentEntry? {
         init()
         try {
             connect().use { conn ->
-                conn.prepareStatement("SELECT userId, order, intent FROM alignment WHERE userId = ?").use { ps ->
-                    ps.setString(1, userId)
+                conn.prepareStatement("SELECT guild, userId, order, intent FROM alignment WHERE guild = ? AND userId = ?").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, userId)
                     ps.executeQuery().use { rs ->
                         if (rs.next()) {
                             return AlignmentEntry(
+                                guildId = rs.getString("guild"),
                                 userId = rs.getString("userId"),
                                 order = rs.getString("order"),
                                 intent = rs.getString("intent")
@@ -1027,7 +1032,7 @@ object Database {
                 }
             }
         } catch (e: Exception) {
-            println("Database.getAlignment failed for user '$userId': ${e.message}")
+            println("Database.getAlignment failed for user '$userId' guild='$guildId': ${e.message}")
             e.printStackTrace()
         }
         return null

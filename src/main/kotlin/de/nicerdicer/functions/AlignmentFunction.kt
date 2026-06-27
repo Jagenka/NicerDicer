@@ -31,6 +31,13 @@ object AlignmentFunction : FunctionBase("alignment", "Everything to do with alig
 
     override suspend fun execute(event: ChatInputCommandInteractionCreateEvent)
     {
+        val guildIdVal = event.interaction.data.guildId.value?.toString()
+        if (guildIdVal == null)
+        {
+            event.interaction.respondPublic { content = "This command can only be used in a guild." }
+            return
+        }
+
         val response = event.interaction.deferPublicResponse()
         try
         {
@@ -59,7 +66,7 @@ object AlignmentFunction : FunctionBase("alignment", "Everything to do with alig
                     }
                     
                     val userId = event.interaction.user.id.toString()
-                    val ok = Database.setAlignment(userId, order, intent)
+                    val ok = Database.setAlignment(guildIdVal, userId, order, intent)
                     if (ok)
                     {
                         response.respond { content = "Your alignment has been set to ${"$order $intent".bold()}" }
@@ -73,7 +80,7 @@ object AlignmentFunction : FunctionBase("alignment", "Everything to do with alig
                 "show" ->
                 {
                     val userId = event.interaction.user.id.toString()
-                    val alignment = Database.getAlignment(userId)
+                    val alignment = Database.getAlignment(guildIdVal, userId)
                     if (alignment != null)
                     {
                         val alignmentStr = "${alignment.order} ${alignment.intent}"
