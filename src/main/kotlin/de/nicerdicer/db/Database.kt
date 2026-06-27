@@ -71,7 +71,7 @@ object Database {
                             CREATE TABLE IF NOT EXISTS alignment (
                                 guild TEXT NOT NULL,
                                 userId TEXT NOT NULL,
-                                "order" TEXT NOT NULL,
+                                alignment_order TEXT NOT NULL,
                                 intent TEXT NOT NULL,
                                 PRIMARY KEY (guild, userId)
                             );
@@ -978,29 +978,29 @@ object Database {
     /**
      * Set or update a user's alignment for a guild. Returns true on success.
      */
-    fun setAlignment(guildId: String, userId: String, order: String, intent: String): Boolean {
+    fun setAlignment(guildId: String, userId: String, ord: String, intent: String): Boolean {
         init()
         val validOrders = listOf("Lawful", "Neutral", "Chaotic")
         val validIntents = listOf("Good", "Neutral", "Evil")
         
-        if (order !in validOrders || intent !in validIntents) {
-            println("Database.setAlignment: invalid order '$order' or intent '$intent'")
+        if (ord !in validOrders || intent !in validIntents) {
+            println("Database.setAlignment: invalid order '$ord' or intent '$intent'")
             return false
         }
         
         try {
             connect().use { conn ->
                 conn.prepareStatement(
-                    "INSERT INTO alignment(guild, userId, order, intent) VALUES(?, ?, ?, ?) ON CONFLICT(guild, userId) DO UPDATE SET order=excluded.order, intent=excluded.intent"
+                    "INSERT INTO alignment(guild, userId, alignment_order, intent) VALUES(?, ?, ?, ?) ON CONFLICT(guild, userId) DO UPDATE SET alignment_order=excluded.alignment_order, intent=excluded.intent"
                 ).use { ps ->
                     ps.setString(1, guildId)
                     ps.setString(2, userId)
-                    ps.setString(3, order)
+                    ps.setString(3, ord)
                     ps.setString(4, intent)
                     ps.executeUpdate()
                 }
             }
-            println("Database.setAlignment: set alignment for user $userId in guild $guildId to $order $intent")
+            println("Database.setAlignment: set alignment for user $userId in guild $guildId to $ord $intent")
             return true
         } catch (e: Exception) {
             println("Database.setAlignment failed for user '$userId' guild='$guildId': ${e.message}")
@@ -1016,7 +1016,7 @@ object Database {
         init()
         try {
             connect().use { conn ->
-                conn.prepareStatement("SELECT guild, userId, order, intent FROM alignment WHERE guild = ? AND userId = ?").use { ps ->
+                conn.prepareStatement("SELECT guild, userId, alignment_order, intent FROM alignment WHERE guild = ? AND userId = ?").use { ps ->
                     ps.setString(1, guildId)
                     ps.setString(2, userId)
                     ps.executeQuery().use { rs ->
@@ -1024,7 +1024,7 @@ object Database {
                             return AlignmentEntry(
                                 guildId = rs.getString("guild"),
                                 userId = rs.getString("userId"),
-                                order = rs.getString("order"),
+                                alignmentOrder = rs.getString("alignment_order"),
                                 intent = rs.getString("intent")
                             )
                         }

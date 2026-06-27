@@ -10,6 +10,7 @@ import de.nicerdicer.functions.FunctionBase
 import de.nicerdicer.functions.LegacyRollFunction
 import de.nicerdicer.functions.PerkFunction
 import de.nicerdicer.functions.QuickTagFunction
+import de.nicerdicer.functions.RolePermissionsFunction
 import de.nicerdicer.functions.RollFunction
 import de.nicerdicer.functions.ShutdownFunction
 import de.nicerdicer.functions.WoundFunction
@@ -34,7 +35,8 @@ object Registry
         TagFunction,
         QuickTagFunction,
         TerritoryFunction,
-        AlignmentFunction
+        AlignmentFunction,
+        RolePermissionsFunction
     )
 
     val commandMap = mutableMapOf<String, FunctionBase>()

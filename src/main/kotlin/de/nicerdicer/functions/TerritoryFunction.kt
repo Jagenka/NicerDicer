@@ -49,11 +49,11 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
     )
 
     // Predefined colors
-    private val COLOR_UNCLAIMED = "#FFFFFF"  // White
-    private val COLOR_GOOD = "#FFFF00"       // Yellow
-    private val COLOR_EVIL = "#800080"       // Purple
-    private val COLOR_QUEST = "#40E0D0"      // Turquoise
-    private val COLOR_CHALLENGED = "#A9A9A9" // Dark Gray
+    private const val COLOR_UNCLAIMED = "#FFFFFF"  // White
+    private const val COLOR_GOOD = "#FFFF00"       // Yellow
+    private const val COLOR_EVIL = "#800080"       // Purple
+    private const val COLOR_QUEST = "#40E0D0"      // Turquoise
+    private const val COLOR_CHALLENGED = "#A9A9A9" // Dark Gray
 
     override suspend fun prepare(kord: Kord)
     {
@@ -146,9 +146,9 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     val type = when {
                         alignment.intent == "Good" -> "Good"
                         alignment.intent == "Evil" -> "Evil"
-                        alignment.intent == "Neutral" && alignment.order == "Lawful" -> "Good"
-                        alignment.intent == "Neutral" && alignment.order == "Chaotic" -> "Evil"
-                        alignment.intent == "Neutral" && alignment.order == "Neutral" -> {
+                        alignment.intent == "Neutral" && alignment.alignmentOrder == "Lawful" -> "Good"
+                        alignment.intent == "Neutral" && alignment.alignmentOrder == "Chaotic" -> "Evil"
+                        alignment.intent == "Neutral" && alignment.alignmentOrder == "Neutral" -> {
                             response.respond { content = "True Neutral cannot claim territories." }
                             return
                         }
@@ -173,7 +173,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                         val outPath = renderFullMapWithClaims(guildIdVal)
                         val f = File(outPath)
                         response.respond {
-                            content = "Territory $id claimed as $type (from your ${alignment.order} ${alignment.intent} alignment) and map updated."
+                            content = "Territory $id claimed as $type (from your ${alignment.alignmentOrder} ${alignment.intent} alignment) and map updated."
                             addFile(f.toPath())
                         }
                     } catch (e: Exception)

@@ -12,15 +12,24 @@ import dev.kord.rest.builder.interaction.string
 
 object AlignmentFunction : FunctionBase("alignment", "Everything to do with alignments.")
 {
+    val validOrders = listOf("Lawful", "Neutral", "Chaotic")
+    val validIntents = listOf("Good", "Neutral", "Evil")
+
     override suspend fun prepare(kord: Kord)
     {
         kord.createGlobalChatInputCommand(name, description) {
             subCommand("set", "Set your alignment") {
                 string("order", "Lawful, Neutral, or Chaotic") { 
                     required = true
+                    validOrders.forEach {
+                        choice(it, it)
+                    }
                 }
                 string("intent", "Good, Neutral, or Evil") { 
                     required = true
+                    validIntents.forEach {
+                        choice(it, it)
+                    }
                 }
             }
             subCommand("show", "Show your alignment") { }
@@ -56,9 +65,6 @@ object AlignmentFunction : FunctionBase("alignment", "Everything to do with alig
                         return
                     }
 
-                    val validOrders = listOf("Lawful", "Neutral", "Chaotic")
-                    val validIntents = listOf("Good", "Neutral", "Evil")
-
                     if (order !in validOrders || intent !in validIntents)
                     {
                         response.respond { content = "Invalid order or intent. Order must be Lawful, Neutral, or Chaotic. Intent must be Good, Neutral, or Evil." }
@@ -83,7 +89,7 @@ object AlignmentFunction : FunctionBase("alignment", "Everything to do with alig
                     val alignment = Database.getAlignment(guildIdVal, userId)
                     if (alignment != null)
                     {
-                        val alignmentStr = "${alignment.order} ${alignment.intent}"
+                        val alignmentStr = "${alignment.alignmentOrder} ${alignment.intent}"
                         response.respond { content = "Your alignment is ${"$alignmentStr".bold()}" }
                     }
                     else
