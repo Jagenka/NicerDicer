@@ -5,6 +5,7 @@ import de.nicerdicer.functions.AugmentFunction
 import de.nicerdicer.functions.CardFunction
 import de.nicerdicer.functions.ChangeDiceFunction
 import de.nicerdicer.functions.CombatFunction
+import de.nicerdicer.functions.FactionFunction
 import de.nicerdicer.functions.FlawFunction
 import de.nicerdicer.functions.FunctionBase
 import de.nicerdicer.functions.LegacyRollFunction
@@ -39,7 +40,8 @@ object Registry
         TerritoryFunction,
         AlignmentFunction,
         RolePermissionsFunction,
-        ReputationFunction
+        ReputationFunction,
+        FactionFunction
     )
 
     val commandMap = mutableMapOf<String, FunctionBase>()

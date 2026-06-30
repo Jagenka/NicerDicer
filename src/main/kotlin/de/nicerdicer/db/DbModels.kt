@@ -57,3 +57,15 @@ data class ReputationEntry(
     val userId: String,
     val amount: Int
 )
+
+data class FactionEntry(
+    val guildId: String,
+    val factionOwnerId: String,      // user id as string
+    val factionRoleId: String,       // role id as string (role that defines faction color and appearance)
+    val name: String,
+    val description: String,
+    val image: String?,              // URL or path to faction image
+    val color: String,               // hex color code for role and territories
+    val memberList: String,           // comma-separated list of user IDs
+    val alignment: String
+)

@@ -5,28 +5,34 @@ package de.nicerdicer.db
 import java.sql.Connection
 import java.sql.DriverManager
 
-object Database {
+object Database
+{
     private const val DB_PATH = "db/nicerdicer.db"
+
     @Volatile
     private var initialized = false
 
     private fun connect(): Connection
     {
-        try {
+        try
+        {
             Class.forName("org.sqlite.JDBC")
-        } catch (e: ClassNotFoundException) {
+        } catch (e: ClassNotFoundException)
+        {
             println("Database: SQLite JDBC driver not found. Add dependency org.xerial:sqlite-jdbc. Error: ${e.message}")
             throw e
         }
         return DriverManager.getConnection("jdbc:sqlite:$DB_PATH")
     }
 
-    fun init() {
+    fun init()
+    {
         if (initialized) return
         synchronized(this) {
             if (initialized) return
             println("Database: Initializing SQLite DB at $DB_PATH ...")
-            try {
+            try
+            {
                 connect().use { conn ->
                     conn.createStatement().use { stmt ->
                         stmt.execute(
@@ -92,6 +98,24 @@ object Database {
                             );
                             """.trimIndent()
                         )
+
+                        stmt.execute(
+                            """
+                            CREATE TABLE IF NOT EXISTS factions (
+                                guild TEXT NOT NULL,
+                                name TEXT NOT NULL COLLATE NOCASE,
+                                ownerId TEXT NOT NULL,
+                                roleId TEXT NOT NULL,
+                                description TEXT,
+                                image TEXT,
+                                color TEXT NOT NULL,
+                                memberList TEXT,
+                                alignment TEXT NOT NULL,
+                                PRIMARY KEY (guild, name),
+                                UNIQUE (guild, roleId)
+                            );
+                            """.trimIndent()
+                        )
                     }
 
                     fillTableIfEmpty(conn, "augments", "/Perklist - Augments.csv") { _, row ->
@@ -125,22 +149,29 @@ object Database {
                     val woundsRows = conn.createStatement().use { st ->
                         st.executeQuery("SELECT count(*) as c FROM wounds").use { rs -> if (rs.next()) rs.getInt("c") else 0 }
                     }
-                    if (woundsRows == 0) {
-                        try {
+                    if (woundsRows == 0)
+                    {
+                        try
+                        {
                             val parsed = parseWoundsFromJsonResource("/wounds.json")
-                            if (parsed.isNotEmpty()) {
+                            if (parsed.isNotEmpty())
+                            {
                                 conn.autoCommit = false
-                                try {
+                                try
+                                {
                                     conn.prepareStatement("INSERT INTO wounds(wound_type,wound_severity,wound_location,wound_name,wound_description) VALUES(?,?,?,?,?)").use { ps ->
-                                        for (w in parsed) {
-                                            try {
+                                        for (w in parsed)
+                                        {
+                                            try
+                                            {
                                                 ps.setString(1, w.woundType)
                                                 ps.setString(2, w.woundSeverity)
                                                 ps.setString(3, w.woundLocation)
                                                 ps.setString(4, w.woundName)
                                                 ps.setString(5, w.woundDescription)
                                                 ps.addBatch()
-                                            } catch (ie: Exception) {
+                                            } catch (ie: Exception)
+                                            {
                                                 println("Database: failed preparing insert for wound row: ${ie.message}")
                                                 ie.printStackTrace()
                                             }
@@ -149,27 +180,33 @@ object Database {
                                     }
                                     conn.commit()
                                     println("Database: inserted ${parsed.size} wounds into wounds table.")
-                                } catch (e: Exception) {
+                                } catch (e: Exception)
+                                {
                                     conn.rollback()
                                     println("Database: rollback while inserting wounds due to: ${e.message}")
                                     e.printStackTrace()
-                                } finally {
+                                } finally
+                                {
                                     conn.autoCommit = true
                                 }
-                            } else {
+                            } else
+                            {
                                 println("Database: no wounds parsed from JSON; wounds table left empty.")
                             }
-                        } catch (e: Exception) {
+                        } catch (e: Exception)
+                        {
                             println("Database: failed to parse/insert wounds: ${e.message}")
                             e.printStackTrace()
                         }
-                    } else {
+                    } else
+                    {
                         println("Database: wounds table already populated ($woundsRows rows).")
                     }
                 }
                 initialized = true
                 println("Database: initialization finished.")
-            } catch (e: Exception) {
+            } catch (e: Exception)
+            {
                 println("Database: initialization failed: ${e.message}")
                 e.printStackTrace()
             }
@@ -178,7 +215,8 @@ object Database {
 
     //region CSV Helpers
 
-    private fun fillSimpleFourColumnCsv(conn: Connection, tableName: String, resourcePath: String) {
+    private fun fillSimpleFourColumnCsv(conn: Connection, tableName: String, resourcePath: String)
+    {
         fillTableIfEmpty(conn, tableName, resourcePath) { headers, row ->
             val nameKey = headers.find { it.equals("Perk Name", true) } ?: headers.find { it.equals("Flaw Name", true) } ?: "Perk Name"
             val textKey = headers.find { it.endsWith("Text", true) } ?: headers.find { it.contains("Text", true) } ?: "Perk Text"
@@ -193,44 +231,55 @@ object Database {
         }
     }
 
-    private fun fillTableIfEmpty(conn: Connection, tableName: String, resourcePath: String, inserter: (headers: List<String>, row: Map<String, String>) -> Unit) {
-        try {
+    private fun fillTableIfEmpty(conn: Connection, tableName: String, resourcePath: String, inserter: (headers: List<String>, row: Map<String, String>) -> Unit)
+    {
+        try
+        {
             val count = conn.createStatement().use { st ->
                 st.executeQuery("SELECT count(*) as c FROM $tableName").use { rs -> if (rs.next()) rs.getInt("c") else 0 }
             }
-            if (count > 0) {
+            if (count > 0)
+            {
                 println("Database: table $tableName already populated ($count rows).")
                 return
             }
             println("Database: populating $tableName from resource $resourcePath ...")
             val (headers, rows) = parseCsvFromResource(resourcePath)
             conn.autoCommit = false
-            try {
-                for (row in rows) {
-                    try {
+            try
+            {
+                for (row in rows)
+                {
+                    try
+                    {
                         inserter(headers, row)
-                    } catch (ie: Exception) {
+                    } catch (ie: Exception)
+                    {
                         println("Database: failed to insert row into $tableName: ${ie.message}")
                         ie.printStackTrace()
                     }
                 }
                 conn.commit()
                 println("Database: populated $tableName with ${rows.size} rows.")
-            } catch (e: Exception) {
+            } catch (e: Exception)
+            {
                 conn.rollback()
                 println("Database: rollback populating $tableName due to ${e.message}")
                 e.printStackTrace()
-            } finally {
+            } finally
+            {
                 conn.autoCommit = true
             }
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database: error checking/populating $tableName: ${e.message}")
             e.printStackTrace()
         }
     }
 
     // Multiline-aware CSV parser that respects quoted fields and escaped quotes ("")
-    private fun parseCsvFromResource(resourcePath: String): Pair<List<String>, List<Map<String, String>>> {
+    private fun parseCsvFromResource(resourcePath: String): Pair<List<String>, List<Map<String, String>>>
+    {
         val stream = javaClass.getResourceAsStream(resourcePath)
             ?: throw IllegalArgumentException("Resource $resourcePath not found.")
         val text = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
@@ -239,27 +288,39 @@ object Database {
         val curRecord = mutableListOf<String>()
         var inQuotes = false
         var i = 0
-        while (i < text.length) {
-            when (val c = text[i]) {
-                '"' -> {
+        while (i < text.length)
+        {
+            when (val c = text[i])
+            {
+                '"' ->
+                {
                     // handle escaped double quote
-                    if (inQuotes && i + 1 < text.length && text[i + 1] == '"') {
+                    if (inQuotes && i + 1 < text.length && text[i + 1] == '"')
+                    {
                         curField.append('"')
                         i++
-                    } else {
+                    } else
+                    {
                         inQuotes = !inQuotes
                     }
                 }
-                ',' -> {
-                    if (inQuotes) curField.append(c) else {
+
+                ',' ->
+                {
+                    if (inQuotes) curField.append(c) else
+                    {
                         curRecord.add(curField.toString())
                         curField.setLength(0)
                     }
                 }
-                '\r' -> {
-                    if (inQuotes) {
+
+                '\r' ->
+                {
+                    if (inQuotes)
+                    {
                         curField.append(c)
-                    } else {
+                    } else
+                    {
                         curRecord.add(curField.toString())
                         curField.setLength(0)
                         records.add(ArrayList(curRecord))
@@ -267,29 +328,36 @@ object Database {
                         if (i + 1 < text.length && text[i + 1] == '\n') i++
                     }
                 }
-                '\n' -> {
-                    if (inQuotes) curField.append(c) else {
+
+                '\n' ->
+                {
+                    if (inQuotes) curField.append(c) else
+                    {
                         curRecord.add(curField.toString())
                         curField.setLength(0)
                         records.add(ArrayList(curRecord))
                         curRecord.clear()
                     }
                 }
+
                 else -> curField.append(c)
             }
             i++
         }
-        if (inQuotes) {
+        if (inQuotes)
+        {
             println("Database.parseCsvFromResource: warning - file ended while still inside quoted field for $resourcePath")
         }
-        if (curField.isNotEmpty() || curRecord.isNotEmpty()) {
+        if (curField.isNotEmpty() || curRecord.isNotEmpty())
+        {
             curRecord.add(curField.toString())
             records.add(ArrayList(curRecord))
         }
         if (records.isEmpty()) return Pair(emptyList(), emptyList())
         val headers = records.first().map { it.trim().removeSurrounding("\"").trim() }
         val rows = mutableListOf<Map<String, String>>()
-        for (rIdx in 1 until records.size) {
+        for (rIdx in 1 until records.size)
+        {
             val row = records[rIdx]
             val map = headers.mapIndexed { idx, h -> h to (if (idx < row.size) row[idx].trim().removeSurrounding("\"") else "") }.toMap()
             rows.add(map)
@@ -297,16 +365,20 @@ object Database {
         return Pair(headers, rows)
     }
 
-    private fun readResourceAsText(resourcePath: String): String {
+    private fun readResourceAsText(resourcePath: String): String
+    {
         val stream = javaClass.getResourceAsStream(resourcePath)
             ?: throw IllegalArgumentException("Resource $resourcePath not found.")
         return stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
     }
 
-    private fun parseWoundsFromJsonResource(resourcePath: String): List<WoundEntry> {
-        val text = try {
+    private fun parseWoundsFromJsonResource(resourcePath: String): List<WoundEntry>
+    {
+        val text = try
+        {
             readResourceAsText(resourcePath)
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.parseWoundsFromJsonResource: cannot read resource $resourcePath: ${e.message}")
             return emptyList()
         }
@@ -314,28 +386,32 @@ object Database {
 
         val topKeyPattern = Regex("\"([^\"]+)\"\\s*:\\s*\\{")
         val matcher = topKeyPattern.findAll(text)
-        for (m in matcher) {
+        for (m in matcher)
+        {
             val typeKey = m.groupValues[1]
             val braceStart = text.indexOf('{', m.range.last)
             if (braceStart < 0) continue
             val (typeObj, _) = extractObjectBlock(text, braceStart) ?: continue
 
             val sevMatches = topKeyPattern.findAll(typeObj)
-            for (sm in sevMatches) {
+            for (sm in sevMatches)
+            {
                 val severityKey = sm.groupValues[1]
                 val sevBraceStart = typeObj.indexOf('{', sm.range.last)
                 if (sevBraceStart < 0) continue
                 val (sevObj, _) = extractObjectBlock(typeObj, sevBraceStart) ?: continue
 
                 val locMatches = topKeyPattern.findAll(sevObj)
-                for (lm in locMatches) {
+                for (lm in locMatches)
+                {
                     val locKey = lm.groupValues[1]
                     val locBraceStart = sevObj.indexOf('{', lm.range.last)
                     if (locBraceStart < 0) continue
                     val (locObj, _) = extractObjectBlock(sevObj, locBraceStart) ?: continue
 
                     val entryPattern = Regex("(?s)\"([^\"]+)\"\\s*:\\s*\"(.*?)\"")
-                    for (em in entryPattern.findAll(locObj)) {
+                    for (em in entryPattern.findAll(locObj))
+                    {
                         val woundName = em.groupValues[1]
                         val woundDesc = em.groupValues[2].replace("\"\"", "\"").trim()
                         results.add(WoundEntry(typeKey, severityKey, locKey, woundName, woundDesc))
@@ -347,15 +423,19 @@ object Database {
         return results
     }
 
-    private fun extractObjectBlock(text: String, startIndex: Int): Pair<String, Int>? {
+    private fun extractObjectBlock(text: String, startIndex: Int): Pair<String, Int>?
+    {
         var i = startIndex
         var depth = 0
         var inQuotes = false
-        while (i < text.length) {
+        while (i < text.length)
+        {
             val c = text[i]
-            if (c == '"') {
+            if (c == '"')
+            {
                 // handle escaped quotes
-                if (inQuotes && i + 1 < text.length && text[i + 1] == '"') {
+                if (inQuotes && i + 1 < text.length && text[i + 1] == '"')
+                {
                     i += 2
                     continue
                 }
@@ -363,11 +443,14 @@ object Database {
                 i++
                 continue
             }
-            if (!inQuotes) {
+            if (!inQuotes)
+            {
                 if (c == '{') depth++
-                else if (c == '}') {
+                else if (c == '}')
+                {
                     depth--
-                    if (depth == 0) {
+                    if (depth == 0)
+                    {
                         val obj = text.substring(startIndex, i + 1)
                         return Pair(obj, i)
                     }
@@ -382,14 +465,17 @@ object Database {
 
     //region Data Getters
 
-    fun getAugments(): List<AugmentEntry> {
+    fun getAugments(): List<AugmentEntry>
+    {
         init()
         val list = mutableListOf<AugmentEntry>()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement("SELECT * FROM augments").use { ps ->
                     ps.executeQuery().use { rs ->
-                        while (rs.next()) {
+                        while (rs.next())
+                        {
                             val a = AugmentEntry(
                                 card = rs.getString("card") ?: "",
                                 general = rs.getString("general") ?: "",
@@ -411,21 +497,25 @@ object Database {
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.getAugments failed: ${e.message}")
             e.printStackTrace()
         }
         return list
     }
 
-    fun getPerks(tableName: String): List<PerkEntry> {
+    fun getPerks(tableName: String): List<PerkEntry>
+    {
         init()
         val list = mutableListOf<PerkEntry>()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement("SELECT card, name, text, meaning FROM $tableName").use { ps ->
                     ps.executeQuery().use { rs ->
-                        while (rs.next()) {
+                        while (rs.next())
+                        {
                             val p = PerkEntry(
                                 card = rs.getString("card") ?: "",
                                 name = rs.getString("name") ?: "",
@@ -437,21 +527,25 @@ object Database {
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.getPerks($tableName) failed: ${e.message}")
             e.printStackTrace()
         }
         return list
     }
 
-    fun getWounds(): List<WoundEntry> {
+    fun getWounds(): List<WoundEntry>
+    {
         init()
         val list = mutableListOf<WoundEntry>()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement("SELECT wound_type, wound_severity, wound_location, wound_name, wound_description FROM wounds").use { ps ->
                     ps.executeQuery().use { rs ->
-                        while (rs.next()) {
+                        while (rs.next())
+                        {
                             list.add(
                                 WoundEntry(
                                     woundType = rs.getString("wound_type") ?: "",
@@ -465,7 +559,8 @@ object Database {
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.getWounds failed: ${e.message}")
             e.printStackTrace()
         }
@@ -479,203 +574,230 @@ object Database {
     /**
      * Create a tag. Returns true on success, false on failure (already exists or error).
      */
-    fun createTag(name: String, ownerId: String, content: String): Boolean {
+    fun createTag(name: String, ownerId: String, content: String): Boolean
+    {
         init()
-        try {
+        try
+        {
             // check existence case-insensitively
             connect().use { conn ->
                 conn.prepareStatement("SELECT name FROM tags WHERE name = ? COLLATE NOCASE").use { ps ->
                     ps.setString(1, name)
                     ps.executeQuery().use { rs ->
-                        if (rs.next()) {
+                        if (rs.next())
+                        {
                             println("Database.createTag: tag '${name}' already exists (case-insensitive match).")
                             return false
                         }
                     }
                 }
             }
-             connect().use { conn ->
-                 conn.prepareStatement("INSERT INTO tags(name, owner, content) VALUES(?,?,?)").use { ps ->
-                     ps.setString(1, name)
-                     ps.setString(2, ownerId)
-                     ps.setString(3, content)
-                     ps.executeUpdate()
-                 }
-             }
-             println("Database.createTag: created tag '$name' by owner $ownerId")
-             return true
-         } catch (e: Exception) {
-             // handle uniqueness / constraint messages gracefully
+            connect().use { conn ->
+                conn.prepareStatement("INSERT INTO tags(name, owner, content) VALUES(?,?,?)").use { ps ->
+                    ps.setString(1, name)
+                    ps.setString(2, ownerId)
+                    ps.setString(3, content)
+                    ps.executeUpdate()
+                }
+            }
+            println("Database.createTag: created tag '$name' by owner $ownerId")
+            return true
+        } catch (e: Exception)
+        {
+            // handle uniqueness / constraint messages gracefully
             val msg = e.message ?: "<no message>"
-            if (msg.contains("constraint", true) || msg.contains("unique", true) || e is java.sql.SQLIntegrityConstraintViolationException) {
+            if (msg.contains("constraint", true) || msg.contains("unique", true) || e is java.sql.SQLIntegrityConstraintViolationException)
+            {
                 println("Database.createTag: tag '$name' already exists (caught exception).")
                 return false
             }
-             println("Database.createTag failed for '$name': $msg")
-             e.printStackTrace()
-             return false
-         }
-     }
+            println("Database.createTag failed for '$name': $msg")
+            e.printStackTrace()
+            return false
+        }
+    }
 
-     /**
-      * Update a tag's content. Only the original owner may update.
-      * Returns true on success, false otherwise.
-      */
-     fun updateTag(name: String, ownerId: String, newContent: String): Boolean {
-         init()
-         try {
-             connect().use { conn ->
+    /**
+     * Update a tag's content. Only the original owner may update.
+     * Returns true on success, false otherwise.
+     */
+    fun updateTag(name: String, ownerId: String, newContent: String): Boolean
+    {
+        init()
+        try
+        {
+            connect().use { conn ->
                 conn.prepareStatement("SELECT owner FROM tags WHERE name = ? COLLATE NOCASE").use { ps ->
-                     ps.setString(1, name)
-                     ps.executeQuery().use { rs ->
-                         if (!rs.next()) {
-                             println("Database.updateTag: tag '$name' does not exist.")
-                             return false
-                         }
-                         val existingOwner = rs.getString("owner") ?: ""
-                         if (existingOwner != ownerId) {
-                             println("Database.updateTag: owner mismatch for '$name' (expected $existingOwner, got $ownerId).")
-                             return false
-                         }
-                     }
-                 }
+                    ps.setString(1, name)
+                    ps.executeQuery().use { rs ->
+                        if (!rs.next())
+                        {
+                            println("Database.updateTag: tag '$name' does not exist.")
+                            return false
+                        }
+                        val existingOwner = rs.getString("owner") ?: ""
+                        if (existingOwner != ownerId)
+                        {
+                            println("Database.updateTag: owner mismatch for '$name' (expected $existingOwner, got $ownerId).")
+                            return false
+                        }
+                    }
+                }
                 conn.prepareStatement("UPDATE tags SET content = ? WHERE name = ? COLLATE NOCASE").use { ps ->
-                     ps.setString(1, newContent)
-                     ps.setString(2, name)
-                     val updated = ps.executeUpdate()
-                     println("Database.updateTag: updated rows = $updated for tag '$name'")
-                 }
-             }
-             return true
-         } catch (e: Exception) {
-             println("Database.updateTag failed for '$name': ${e.message}")
-             e.printStackTrace()
-             return false
-         }
-     }
+                    ps.setString(1, newContent)
+                    ps.setString(2, name)
+                    val updated = ps.executeUpdate()
+                    println("Database.updateTag: updated rows = $updated for tag '$name'")
+                }
+            }
+            return true
+        } catch (e: Exception)
+        {
+            println("Database.updateTag failed for '$name': ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
 
-     /**
-      * Delete a tag. Only the original owner may delete.
-      * Returns true on success, false otherwise.
-      */
-     fun deleteTag(name: String, ownerId: String): Boolean {
-         init()
-         try {
-             connect().use { conn ->
+    /**
+     * Delete a tag. Only the original owner may delete.
+     * Returns true on success, false otherwise.
+     */
+    fun deleteTag(name: String, ownerId: String): Boolean
+    {
+        init()
+        try
+        {
+            connect().use { conn ->
                 conn.prepareStatement("SELECT owner FROM tags WHERE name = ? COLLATE NOCASE").use { ps ->
-                     ps.setString(1, name)
-                     ps.executeQuery().use { rs ->
-                         if (!rs.next()) {
-                             println("Database.deleteTag: tag '$name' does not exist.")
-                             return false
-                         }
-                         val existingOwner = rs.getString("owner") ?: ""
-                         if (existingOwner != ownerId) {
-                             println("Database.deleteTag: owner mismatch for '$name' (expected $existingOwner, got $ownerId).")
-                             return false
-                         }
-                     }
-                 }
+                    ps.setString(1, name)
+                    ps.executeQuery().use { rs ->
+                        if (!rs.next())
+                        {
+                            println("Database.deleteTag: tag '$name' does not exist.")
+                            return false
+                        }
+                        val existingOwner = rs.getString("owner") ?: ""
+                        if (existingOwner != ownerId)
+                        {
+                            println("Database.deleteTag: owner mismatch for '$name' (expected $existingOwner, got $ownerId).")
+                            return false
+                        }
+                    }
+                }
                 conn.prepareStatement("DELETE FROM tags WHERE name = ? COLLATE NOCASE").use { ps ->
-                     ps.setString(1, name)
-                     val deleted = ps.executeUpdate()
-                     println("Database.deleteTag: deleted rows = $deleted for tag '$name'")
-                 }
-             }
-             return true
-         } catch (e: Exception) {
-             println("Database.deleteTag failed for '$name': ${e.message}")
-             e.printStackTrace()
-             return false
-         }
-     }
+                    ps.setString(1, name)
+                    val deleted = ps.executeUpdate()
+                    println("Database.deleteTag: deleted rows = $deleted for tag '$name'")
+                }
+            }
+            return true
+        } catch (e: Exception)
+        {
+            println("Database.deleteTag failed for '$name': ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
 
-     /**
-      * Retrieve a single tag by name, or null if not found.
-      */
-     fun getTag(name: String): TagEntry? {
-         init()
-         try {
-             connect().use { conn ->
+    /**
+     * Retrieve a single tag by name, or null if not found.
+     */
+    fun getTag(name: String): TagEntry?
+    {
+        init()
+        try
+        {
+            connect().use { conn ->
                 conn.prepareStatement("SELECT name, owner, content FROM tags WHERE name = ? COLLATE NOCASE").use { ps ->
-                     ps.setString(1, name)
-                     ps.executeQuery().use { rs ->
-                         if (rs.next()) {
-                             return TagEntry(
-                                 name = rs.getString("name") ?: "",
-                                 owner = rs.getString("owner") ?: "",
-                                 content = rs.getString("content") ?: ""
-                             )
-                         }
-                     }
-                 }
-             }
-         } catch (e: Exception) {
-             println("Database.getTag failed for '$name': ${e.message}")
-             e.printStackTrace()
-         }
-         return null
-     }
+                    ps.setString(1, name)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next())
+                        {
+                            return TagEntry(
+                                name = rs.getString("name") ?: "",
+                                owner = rs.getString("owner") ?: "",
+                                content = rs.getString("content") ?: ""
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception)
+        {
+            println("Database.getTag failed for '$name': ${e.message}")
+            e.printStackTrace()
+        }
+        return null
+    }
 
-     /**
-      * List tags owned by a given user id.
-      */
-     fun listTagsByOwner(ownerId: String): List<TagEntry> {
-         init()
-         val res = mutableListOf<TagEntry>()
-         try {
-             connect().use { conn ->
-                 conn.prepareStatement("SELECT name, owner, content FROM tags WHERE owner = ? ORDER BY name COLLATE NOCASE").use { ps ->
-                     ps.setString(1, ownerId)
-                     ps.executeQuery().use { rs ->
-                         while (rs.next()) {
-                             res.add(
-                                 TagEntry(
-                                     name = rs.getString("name") ?: "",
-                                     owner = rs.getString("owner") ?: "",
-                                     content = rs.getString("content") ?: ""
-                                 )
-                             )
-                         }
-                     }
-                 }
-             }
-         } catch (e: Exception) {
-             println("Database.listTagsByOwner failed for owner '$ownerId': ${e.message}")
-             e.printStackTrace()
-         }
-         return res
-     }
+    /**
+     * List tags owned by a given user id.
+     */
+    fun listTagsByOwner(ownerId: String): List<TagEntry>
+    {
+        init()
+        val res = mutableListOf<TagEntry>()
+        try
+        {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT name, owner, content FROM tags WHERE owner = ? ORDER BY name COLLATE NOCASE").use { ps ->
+                    ps.setString(1, ownerId)
+                    ps.executeQuery().use { rs ->
+                        while (rs.next())
+                        {
+                            res.add(
+                                TagEntry(
+                                    name = rs.getString("name") ?: "",
+                                    owner = rs.getString("owner") ?: "",
+                                    content = rs.getString("content") ?: ""
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception)
+        {
+            println("Database.listTagsByOwner failed for owner '$ownerId': ${e.message}")
+            e.printStackTrace()
+        }
+        return res
+    }
 
     //endregion
 
     //region Color Helpers
 
     /**
-    * Map a territory type to its predefined color.
-    */
-    private fun getColorForType(type: String?): String {
-       return when (type?.lowercase()) {
-           "good" -> "Yellow"
-           "evil" -> "Purple"
-           "quest" -> "Turquoise"
-           "challenged" -> "DarkGray"
-           else -> "White"  // default for unclaimed
-       }
+     * Map a territory type to its predefined color.
+     */
+    private fun getColorForType(type: String?): String
+    {
+        return when (type?.lowercase())
+        {
+            "good" -> "Yellow"
+            "evil" -> "Purple"
+            "quest" -> "Turquoise"
+            "challenged" -> "DarkGray"
+            else -> "White"  // default for unclaimed
+        }
     }
 
     /**
-    * Convert color name to hex for rendering (#RRGGBB).
-    */
-    private fun getHexForColor(color: String): String {
-       return when (color) {
-           "White" -> "#FFFFFF"
-           "Yellow" -> "#FFFF00"
-           "Purple" -> "#800080"
-           "Turquoise" -> "#40E0D0"
-           "DarkGray" -> "#A9A9A9"
-           else -> "#FFFFFF"
-       }
+     * Convert color name to hex for rendering (#RRGGBB).
+     */
+    private fun getHexForColor(color: String): String
+    {
+        return when (color)
+        {
+            "White" -> "#FFFFFF"
+            "Yellow" -> "#FFFF00"
+            "Purple" -> "#800080"
+            "Turquoise" -> "#40E0D0"
+            "DarkGray" -> "#A9A9A9"
+            else -> "#FFFFFF"
+        }
     }
 
     //endregion
@@ -687,17 +809,21 @@ object Database {
      * Type can be "Good", "Evil", or "Quest"; otherwise defaults to unclaimed (White).
      * Returns true on success.
      */
-    fun claimTerritory(id: Int, ownerId: String, guildId: String, optionalName: String? = null, type: String? = null): Boolean {
+    fun claimTerritory(id: Int, ownerId: String, guildId: String, optionalName: String? = null, type: String? = null): Boolean
+    {
         init()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement("SELECT owner FROM territories WHERE guild = ? AND id = ?").use { ps ->
                     ps.setString(1, guildId)
                     ps.setInt(2, id)
                     ps.executeQuery().use { rs ->
-                        if (rs.next()) {
+                        if (rs.next())
+                        {
                             val existingOwner = rs.getString("owner")
-                            if (existingOwner != null && existingOwner != ownerId) {
+                            if (existingOwner != null && existingOwner != ownerId)
+                            {
                                 println("Database.claimTerritory: territory $id in guild $guildId already owned by $existingOwner")
                                 return false
                             }
@@ -706,7 +832,8 @@ object Database {
                 }
                 val color = getColorForType(type)
                 // ensure a row exists (create or update) for this guild
-                if (optionalName != null) {
+                if (optionalName != null)
+                {
                     conn.prepareStatement(
                         "INSERT INTO territories(guild,id,name,owner,color) VALUES(?,?,?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner=excluded.owner, name=COALESCE(excluded.name,territories.name), color=excluded.color"
                     ).use { ps ->
@@ -717,7 +844,8 @@ object Database {
                         ps.setString(5, color)
                         ps.executeUpdate()
                     }
-                } else {
+                } else
+                {
                     conn.prepareStatement(
                         "INSERT INTO territories(guild,id,owner,color) VALUES(?,?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner=excluded.owner, color=excluded.color"
                     ).use { ps ->
@@ -731,7 +859,8 @@ object Database {
             }
             println("Database.claimTerritory: owner $ownerId claimed territory $id in guild $guildId with type $type")
             return true
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.claimTerritory failed for id=$id owner=$ownerId guild=$guildId: ${e.message}")
             e.printStackTrace()
             return false
@@ -742,24 +871,29 @@ object Database {
      * Release a territory in a specific guild. Only allowed if caller is owner.
      * Resets the territory name to default ("Territory <id>") and color to "White" (unclaimed) when released.
      */
-    fun releaseTerritory(id: Int, ownerId: String, guildId: String): Boolean {
+    fun releaseTerritory(id: Int, ownerId: String, guildId: String): Boolean
+    {
         init()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement("SELECT owner FROM territories WHERE guild = ? AND id = ?").use { ps ->
                     ps.setString(1, guildId)
                     ps.setInt(2, id)
                     ps.executeQuery().use { rs ->
-                        if (!rs.next()) {
+                        if (!rs.next())
+                        {
                             println("Database.releaseTerritory: territory $id in guild $guildId does not exist.")
                             return false
                         }
                         val existingOwner = rs.getString("owner")
-                        if (existingOwner == null) {
+                        if (existingOwner == null)
+                        {
                             println("Database.releaseTerritory: territory $id in guild $guildId is already unowned.")
                             return false
                         }
-                        if (existingOwner != ownerId) {
+                        if (existingOwner != ownerId)
+                        {
                             println("Database.releaseTerritory: owner mismatch (expected $existingOwner, got $ownerId) for guild $guildId.")
                             return false
                         }
@@ -777,7 +911,8 @@ object Database {
             }
             println("Database.releaseTerritory: owner $ownerId released territory $id in guild $guildId and name reset to default.")
             return true
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.releaseTerritory failed for id=$id owner=$ownerId guild=$guildId: ${e.message}")
             e.printStackTrace()
             return false
@@ -787,9 +922,11 @@ object Database {
     /**
      * Force-release a territory (used by moderators). Does not check ownership.
      */
-    fun releaseTerritoryByModerator(id: Int, guildId: String): Boolean {
+    fun releaseTerritoryByModerator(id: Int, guildId: String): Boolean
+    {
         init()
-        try {
+        try
+        {
             connect().use { conn ->
                 // Reset owner, name to default, and color to White (unclaimed)
                 val defaultName = "Territory $id"
@@ -799,7 +936,8 @@ object Database {
                     ps.setString(3, guildId)
                     ps.setInt(4, id)
                     val updated = ps.executeUpdate()
-                    if (updated == 0) {
+                    if (updated == 0)
+                    {
                         println("Database.releaseTerritoryByModerator: territory $id in guild $guildId does not exist.")
                         return false
                     }
@@ -807,7 +945,8 @@ object Database {
             }
             println("Database.releaseTerritoryByModerator: territory $id in guild $guildId force-released by moderator.")
             return true
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.releaseTerritoryByModerator failed for id=$id guild=$guildId: ${e.message}")
             e.printStackTrace()
             return false
@@ -818,15 +957,19 @@ object Database {
      * Ensure every id in 'ids' exists in the territories table for the given guild with default values.
      * Idempotent: existing rows are left alone.
      */
-    fun initializeTerritories(ids: Collection<Int>, guildId: String) {
+    fun initializeTerritories(ids: Collection<Int>, guildId: String)
+    {
         init()
         if (ids.isEmpty()) return
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.autoCommit = false
-                try {
+                try
+                {
                     conn.prepareStatement("INSERT OR IGNORE INTO territories(guild,id,name,owner,color) VALUES(?,?,?,NULL,?)").use { ps ->
-                        for (id in ids) {
+                        for (id in ids)
+                        {
                             ps.setString(1, guildId)
                             ps.setInt(2, id)
                             ps.setString(3, "Territory $id")
@@ -837,15 +980,18 @@ object Database {
                     }
                     conn.commit()
                     println("Database.initializeTerritories: ensured ${ids.size} territory rows exist for guild $guildId.")
-                } catch (e: Exception) {
+                } catch (e: Exception)
+                {
                     conn.rollback()
                     println("Database.initializeTerritories: rollback due to ${e.message}")
                     e.printStackTrace()
-                } finally {
+                } finally
+                {
                     conn.autoCommit = true
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.initializeTerritories failed for guild $guildId: ${e.message}")
             e.printStackTrace()
         }
@@ -855,26 +1001,31 @@ object Database {
      * Rename a territory in a guild. Only the original owner may rename.
      * Ensures name uniqueness (case-insensitive within guild). Returns true on success.
      */
-    fun renameTerritory(id: Int, ownerId: String, guildId: String, newName: String): Boolean {
+    fun renameTerritory(id: Int, ownerId: String, guildId: String, newName: String): Boolean
+    {
         init()
         val trimmed = newName.trim()
-        if (trimmed.isEmpty()) {
+        if (trimmed.isEmpty())
+        {
             println("Database.renameTerritory: new name is empty.")
             return false
         }
-        try {
+        try
+        {
             connect().use { conn ->
                 // ensure territory exists and owner matches
                 conn.prepareStatement("SELECT owner FROM territories WHERE guild = ? AND id = ?").use { ps ->
                     ps.setString(1, guildId)
                     ps.setInt(2, id)
                     ps.executeQuery().use { rs ->
-                        if (!rs.next()) {
+                        if (!rs.next())
+                        {
                             println("Database.renameTerritory: territory $id in guild $guildId does not exist.")
                             return false
                         }
                         val existingOwner = rs.getString("owner")
-                        if (existingOwner == null || existingOwner != ownerId) {
+                        if (existingOwner == null || existingOwner != ownerId)
+                        {
                             println("Database.renameTerritory: owner mismatch or unowned for territory $id in guild $guildId (owner=$existingOwner, caller=$ownerId).")
                             return false
                         }
@@ -885,9 +1036,11 @@ object Database {
                     ps.setString(1, guildId)
                     ps.setString(2, trimmed)
                     ps.executeQuery().use { rs ->
-                        if (rs.next()) {
+                        if (rs.next())
+                        {
                             val foundId = rs.getInt("id")
-                            if (foundId != id) {
+                            if (foundId != id)
+                            {
                                 println("Database.renameTerritory: name '$trimmed' already used by territory $foundId in guild $guildId.")
                                 return false
                             }
@@ -904,7 +1057,8 @@ object Database {
                 }
             }
             return true
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.renameTerritory failed for id=$id owner=$ownerId guild=$guildId newName='$newName': ${e.message}")
             e.printStackTrace()
             return false
@@ -915,15 +1069,18 @@ object Database {
      * Set a territory to "Challenged" color. Can be called by anyone.
      * Returns true on success.
      */
-    fun challengeTerritory(id: Int, guildId: String): Boolean {
+    fun challengeTerritory(id: Int, guildId: String): Boolean
+    {
         init()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement("SELECT id FROM territories WHERE guild = ? AND id = ?").use { ps ->
                     ps.setString(1, guildId)
                     ps.setInt(2, id)
                     ps.executeQuery().use { rs ->
-                        if (!rs.next()) {
+                        if (!rs.next())
+                        {
                             println("Database.challengeTerritory: territory $id in guild $guildId does not exist.")
                             return false
                         }
@@ -938,7 +1095,8 @@ object Database {
             }
             println("Database.challengeTerritory: territory $id in guild $guildId marked as challenged.")
             return true
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.challengeTerritory failed for id=$id guild=$guildId: ${e.message}")
             e.printStackTrace()
             return false
@@ -948,10 +1106,12 @@ object Database {
     /**
      * List all territories for a given guild with color.
      */
-    fun listTerritories(guildId: String): List<TerritoryEntry> {
+    fun listTerritories(guildId: String): List<TerritoryEntry>
+    {
         init()
         val res = mutableListOf<TerritoryEntry>()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement(
                     """
@@ -963,7 +1123,8 @@ object Database {
                 ).use { ps ->
                     ps.setString(1, guildId)
                     ps.executeQuery().use { rs ->
-                        while (rs.next()) {
+                        while (rs.next())
+                        {
                             res.add(
                                 TerritoryEntry(
                                     id = rs.getInt("id"),
@@ -976,7 +1137,8 @@ object Database {
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.listTerritories failed for guild $guildId: ${e.message}")
             e.printStackTrace()
         }
@@ -990,17 +1152,20 @@ object Database {
     /**
      * Set or update a user's alignment for a guild. Returns true on success.
      */
-    fun setAlignment(guildId: String, userId: String, ord: String, intent: String): Boolean {
+    fun setAlignment(guildId: String, userId: String, ord: String, intent: String): Boolean
+    {
         init()
         val validOrders = listOf("Lawful", "Neutral", "Chaotic")
         val validIntents = listOf("Good", "Neutral", "Evil")
-        
-        if (ord !in validOrders || intent !in validIntents) {
+
+        if (ord !in validOrders || intent !in validIntents)
+        {
             println("Database.setAlignment: invalid order '$ord' or intent '$intent'")
             return false
         }
-        
-        try {
+
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement(
                     "INSERT INTO alignment(guild, userId, alignment_order, intent) VALUES(?, ?, ?, ?) ON CONFLICT(guild, userId) DO UPDATE SET alignment_order=excluded.alignment_order, intent=excluded.intent"
@@ -1014,7 +1179,8 @@ object Database {
             }
             println("Database.setAlignment: set alignment for user $userId in guild $guildId to $ord $intent")
             return true
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.setAlignment failed for user '$userId' guild='$guildId': ${e.message}")
             e.printStackTrace()
             return false
@@ -1024,15 +1190,18 @@ object Database {
     /**
      * Get a user's alignment for a guild. Returns AlignmentEntry or null if not found.
      */
-    fun getAlignment(guildId: String, userId: String): AlignmentEntry? {
+    fun getAlignment(guildId: String, userId: String): AlignmentEntry?
+    {
         init()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement("SELECT guild, userId, alignment_order, intent FROM alignment WHERE guild = ? AND userId = ?").use { ps ->
                     ps.setString(1, guildId)
                     ps.setString(2, userId)
                     ps.executeQuery().use { rs ->
-                        if (rs.next()) {
+                        if (rs.next())
+                        {
                             return AlignmentEntry(
                                 guildId = rs.getString("guild"),
                                 userId = rs.getString("userId"),
@@ -1043,7 +1212,8 @@ object Database {
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.getAlignment failed for user '$userId' guild='$guildId': ${e.message}")
             e.printStackTrace()
         }
@@ -1054,9 +1224,11 @@ object Database {
 
     //region Permission Helpers
 
-    fun setModRole(guildId: String, roleId: String): Boolean {
+    fun setModRole(guildId: String, roleId: String): Boolean
+    {
         init()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement(
                     "INSERT INTO permissions(guild, mod) VALUES(?, ?) ON CONFLICT(guild) DO UPDATE SET mod=excluded.mod"
@@ -1068,16 +1240,19 @@ object Database {
             }
             println("Database.setModRole: set mod role $roleId for guild $guildId")
             return true
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.setModRole failed for guild '$guildId' role='$roleId': ${e.message}")
             e.printStackTrace()
             return false
         }
     }
 
-    fun getModRole(guildId: String): String? {
+    fun getModRole(guildId: String): String?
+    {
         init()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement("SELECT mod FROM permissions WHERE guild = ?").use { ps ->
                     ps.setString(1, guildId)
@@ -1086,7 +1261,8 @@ object Database {
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.getModRole failed for guild '$guildId': ${e.message}")
             e.printStackTrace()
         }
@@ -1097,9 +1273,11 @@ object Database {
 
     //region Reputation Helpers
 
-    fun addToReputation(guildId: String, userId: String, amount: Int): Boolean {
+    fun addToReputation(guildId: String, userId: String, amount: Int): Boolean
+    {
         init()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement(
                     "INSERT INTO reputation(guild, userId, rep) VALUES(?, ?, ?) ON CONFLICT(guild, userId) DO UPDATE SET rep = reputation.rep + excluded.rep"
@@ -1112,22 +1290,26 @@ object Database {
             }
             println("Database.addToReputation: added $amount to reputation for user $userId in guild $guildId")
             return true
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.addToReputation failed for user '$userId' guild='$guildId': ${e.message}")
             e.printStackTrace()
             return false
         }
     }
 
-    fun getReputation(guildId: String, userId: String): ReputationEntry? {
+    fun getReputation(guildId: String, userId: String): ReputationEntry?
+    {
         init()
-        try {
+        try
+        {
             connect().use { conn ->
                 conn.prepareStatement("SELECT guild, userId, rep FROM reputation WHERE guild = ? AND userId = ?").use { ps ->
                     ps.setString(1, guildId)
                     ps.setString(2, userId)
                     ps.executeQuery().use { rs ->
-                        if (rs.next()) {
+                        if (rs.next())
+                        {
                             return ReputationEntry(
                                 guildId = rs.getString("guild"),
                                 userId = rs.getString("userId"),
@@ -1137,11 +1319,354 @@ object Database {
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("Database.getReputation failed for user '$userId' guild='$guildId': ${e.message}")
             e.printStackTrace()
         }
         return null
+    }
+
+    //endregion
+
+    //region Faction Helpers
+
+    /**
+     * Create a faction. Returns true on success, false on failure (already exists or error).
+     */
+    fun createFaction(
+        guildId: String,
+        name: String,
+        ownerId: String,
+        roleId: String,
+        description: String,
+        image: String?,
+        color: String,
+        alignment: String
+    ): Boolean
+    {
+        init()
+        try
+        {
+            // check existence case-insensitively
+            connect().use { conn ->
+                conn.prepareStatement("SELECT name FROM factions WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, name)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next())
+                        {
+                            println("Database.createFaction: faction '$name' already exists in guild $guildId (case-insensitive match).")
+                            return false
+                        }
+                    }
+                }
+            }
+            connect().use { conn ->
+                conn.prepareStatement(
+                    "INSERT INTO factions(guild, name, ownerId, roleId, description, image, color, memberList, alignment) VALUES(?,?,?,?,?,?,?,?,?)"
+                ).use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, name)
+                    ps.setString(3, ownerId)
+                    ps.setString(4, roleId)
+                    ps.setString(5, description)
+                    ps.setString(6, image)
+                    ps.setString(7, color)
+                    ps.setString(8, ownerId)  // initialize memberList with owner
+                    ps.setString(9, alignment)
+                    ps.executeUpdate()
+                }
+            }
+            println("Database.createFaction: created faction '$name' in guild $guildId by owner $ownerId with role $roleId")
+            return true
+        } catch (e: Exception)
+        {
+            val msg = e.message ?: "<no message>"
+            if (msg.contains("constraint", true) || msg.contains("unique", true) || e is java.sql.SQLIntegrityConstraintViolationException)
+            {
+                println("Database.createFaction: faction '$name' already exists in guild $guildId (caught exception).")
+                return false
+            }
+            println("Database.createFaction failed for '$name': $msg")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    /**
+     * Update a faction's description and/or image. Only the original owner may update.
+     * Returns true on success, false otherwise.
+     */
+    fun updateFaction(
+        guildId: String,
+        name: String,
+        ownerId: String,
+        newDescription: String?,
+        newImage: String?,
+        newColor: String,
+        alignment: String
+    ): Boolean
+    {
+        init()
+        try
+        {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT ownerId FROM factions WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, name)
+                    ps.executeQuery().use { rs ->
+                        if (!rs.next())
+                        {
+                            println("Database.updateFaction: faction '$name' does not exist in guild $guildId.")
+                            return false
+                        }
+                    }
+                }
+                conn.prepareStatement("UPDATE factions SET description = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, newDescription)
+                    ps.setString(2, guildId)
+                    ps.setString(3, name)
+                    ps.executeUpdate()
+                }
+                conn.prepareStatement("UPDATE factions SET image = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, newImage)
+                    ps.setString(2, guildId)
+                    ps.setString(3, name)
+                    ps.executeUpdate()
+                }
+                conn.prepareStatement("UPDATE factions SET color = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, newColor)
+                    ps.setString(2, guildId)
+                    ps.setString(3, name)
+                    ps.executeUpdate()
+                }
+                conn.prepareStatement("UPDATE factions SET ownerId = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, ownerId)
+                    ps.setString(2, guildId)
+                    ps.setString(3, name)
+                    ps.executeUpdate()
+                }
+                conn.prepareStatement("UPDATE factions SET alignment = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, alignment)
+                    ps.setString(2, guildId)
+                    ps.setString(3, name)
+                    ps.executeUpdate()
+                }
+            }
+            println("Database.updateFaction: updated faction '$name' in guild $guildId")
+            return true
+        } catch (e: Exception)
+        {
+            println("Database.updateFaction failed for '$name': ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    /**
+     * Delete a faction. Only the original owner or a moderator may delete.
+     * Returns true on success, false otherwise.
+     */
+    fun deleteFaction(
+        guildId: String,
+        name: String
+    ): Boolean
+    {
+        init()
+        try
+        {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT ownerId FROM factions WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, name)
+                    ps.executeQuery().use { rs ->
+                        if (!rs.next())
+                        {
+                            println("Database.deleteFaction: faction '$name' does not exist in guild $guildId.")
+                            return false
+                        }
+                    }
+                }
+                conn.prepareStatement("DELETE FROM factions WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, name)
+                    val deleted = ps.executeUpdate()
+                    println("Database.deleteFaction: deleted $deleted faction row(s) for '$name' in guild $guildId")
+                }
+            }
+            return true
+        } catch (e: Exception)
+        {
+            println("Database.deleteFaction failed for '$name': ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    /**
+     * Retrieve a single faction by name, or null if not found.
+     */
+    fun getFaction(guildId: String, name: String): FactionEntry?
+    {
+        init()
+        try
+        {
+            connect().use { conn ->
+                conn.prepareStatement(
+                    "SELECT guild, name, ownerId, roleId, description, image, color, memberList, alignment FROM factions WHERE guild = ? AND name = ? COLLATE NOCASE"
+                ).use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, name)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next())
+                        {
+                            return FactionEntry(
+                                guildId = rs.getString("guild"),
+                                name = rs.getString("name"),
+                                factionOwnerId = rs.getString("ownerId"),
+                                factionRoleId = rs.getString("roleId"),
+                                description = rs.getString("description") ?: "",
+                                image = rs.getString("image"),
+                                color = rs.getString("color"),
+                                memberList = rs.getString("memberList") ?: "",
+                                alignment = rs.getString("alignment") ?: ""
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception)
+        {
+            println("Database.getFaction failed for '$name' in guild $guildId: ${e.message}")
+            e.printStackTrace()
+        }
+        return null
+    }
+
+    /**
+     * List all factions in a guild.
+     */
+    fun listFactions(guildId: String): List<FactionEntry>
+    {
+        init()
+        val res = mutableListOf<FactionEntry>()
+        try
+        {
+            connect().use { conn ->
+                conn.prepareStatement(
+                    "SELECT guild, name, ownerId, roleId, description, image, color, memberList, alignment FROM factions WHERE guild = ? ORDER BY name COLLATE NOCASE"
+                ).use { ps ->
+                    ps.setString(1, guildId)
+                    ps.executeQuery().use { rs ->
+                        while (rs.next())
+                        {
+                            res.add(
+                                FactionEntry(
+                                    guildId = rs.getString("guild"),
+                                    name = rs.getString("name"),
+                                    factionOwnerId = rs.getString("ownerId"),
+                                    factionRoleId = rs.getString("roleId"),
+                                    description = rs.getString("description") ?: "",
+                                    image = rs.getString("image"),
+                                    color = rs.getString("color"),
+                                    memberList = rs.getString("memberList") ?: "",
+                                    alignment = rs.getString("alignment") ?: ""
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception)
+        {
+            println("Database.listFactions failed for guild $guildId: ${e.message}")
+            e.printStackTrace()
+        }
+        return res
+    }
+
+    /**
+     * Add a member to a faction's memberList.
+     */
+    fun addFactionMember(guildId: String, factionName: String, userId: String): Boolean
+    {
+        init()
+        try
+        {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT memberList FROM factions WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, factionName)
+                    ps.executeQuery().use { rs ->
+                        if (!rs.next())
+                        {
+                            println("Database.addFactionMember: faction '$factionName' does not exist in guild $guildId.")
+                            return false
+                        }
+                        var memberList = rs.getString("memberList") ?: ""
+                        if (!memberList.contains(userId))
+                        {
+                            memberList = if (memberList.isEmpty()) userId else "$memberList,$userId"
+                        }
+                        conn.prepareStatement("UPDATE factions SET memberList = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps2 ->
+                            ps2.setString(1, memberList)
+                            ps2.setString(2, guildId)
+                            ps2.setString(3, factionName)
+                            ps2.executeUpdate()
+                        }
+                    }
+                }
+            }
+            println("Database.addFactionMember: added $userId to faction '$factionName' in guild $guildId")
+            return true
+        } catch (e: Exception)
+        {
+            println("Database.addFactionMember failed: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    /**
+     * Remove a member from a faction's memberList.
+     */
+    fun removeFactionMember(guildId: String, factionName: String, userId: String): Boolean
+    {
+        init()
+        try
+        {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT memberList FROM factions WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, guildId)
+                    ps.setString(2, factionName)
+                    ps.executeQuery().use { rs ->
+                        if (!rs.next())
+                        {
+                            println("Database.removeFactionMember: faction '$factionName' does not exist in guild $guildId.")
+                            return false
+                        }
+                        var memberList = rs.getString("memberList") ?: ""
+                        val members = memberList.split(",").toMutableList()
+                        members.remove(userId)
+                        memberList = members.joinToString(",")
+                        conn.prepareStatement("UPDATE factions SET memberList = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps2 ->
+                            ps2.setString(1, memberList)
+                            ps2.setString(2, guildId)
+                            ps2.setString(3, factionName)
+                            ps2.executeUpdate()
+                        }
+                    }
+                }
+            }
+            println("Database.removeFactionMember: removed $userId from faction '$factionName' in guild $guildId")
+            return true
+        } catch (e: Exception)
+        {
+            println("Database.removeFactionMember failed: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
     }
 
     //endregion
