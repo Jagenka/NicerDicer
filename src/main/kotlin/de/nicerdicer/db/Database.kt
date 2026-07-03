@@ -117,6 +117,26 @@ object Database
                             );
                             """.trimIndent()
                         )
+
+                        stmt.execute(
+                            """
+                            CREATE TABLE IF NOT EXISTS mook_classes (
+                                name TEXT PRIMARY KEY COLLATE NOCASE,
+                                pool TEXT NOT NULL,
+                                description TEXT NOT NULL,
+                                skill TEXT
+                            );
+                            """.trimIndent()
+                        )
+
+                        stmt.execute(
+                            """
+                            CREATE TABLE IF NOT EXISTS mook_backstories (
+                                behavior TEXT NOT NULL,
+                                history TEXT NOT NULL
+                            );
+                            """.trimIndent()
+                        )
                     }
 
                     fillTableIfEmpty(conn, "augments", "/Perklist - Augments.csv") { _, row ->
@@ -202,6 +222,24 @@ object Database
                     } else
                     {
                         println("Database: wounds table already populated ($woundsRows rows).")
+                    }
+
+                    fillTableIfEmpty(conn, "mook_classes", "/mook_classes.csv") { _, row ->
+                        conn.prepareStatement("INSERT INTO mook_classes(name,pool,description,skill) VALUES(?,?,?,?)").use { ps ->
+                            ps.setString(1, row["Name"] ?: "")
+                            ps.setString(2, row["Pool"] ?: "")
+                            ps.setString(3, row["Description"] ?: "")
+                            ps.setString(4, row["Skill"])
+                            ps.executeUpdate()
+                        }
+                    }
+
+                    fillTableIfEmpty(conn, "mook_backstories", "/mook_backstories.csv") { _, row ->
+                        conn.prepareStatement("INSERT INTO mook_backstories(behavior,history) VALUES(?,?)").use { ps ->
+                            ps.setString(1, row["Behavior"] ?: "")
+                            ps.setString(2, row["Previous History (Why are they doing this)"] ?: "")
+                            ps.executeUpdate()
+                        }
                     }
                 }
                 initialized = true
@@ -1718,6 +1756,91 @@ object Database
         } catch (e: Exception)
         {
             println("Database.getFactionOfUser failed for user '$userId' in guild $guildId: ${e.message}")
+            e.printStackTrace()
+        }
+        return null
+    }
+
+    //endregion
+
+    //region Mook Helpers
+
+    fun getMookClassByName(name: String): MookClassEntry?
+    {
+        try
+        {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT name, pool, description, skill FROM mook_classes WHERE name = ? COLLATE NOCASE").use { ps ->
+                    ps.setString(1, name)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next())
+                        {
+                            return MookClassEntry(
+                                name = rs.getString("name"),
+                                pool = rs.getString("pool"),
+                                description = rs.getString("description"),
+                                skill = rs.getString("skill")
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception)
+        {
+            println("Database.getMookClassByName failed for '$name': ${e.message}")
+            e.printStackTrace()
+        }
+        return null
+    }
+
+    fun getRandomMookClass(targetPool: String): MookClassEntry?
+    {
+        try
+        {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT name, pool, description, skill FROM mook_classes WHERE pool = ? COLLATE NOCASE ORDER BY RANDOM() LIMIT 1").use { ps ->
+                    ps.setString(1, targetPool)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next())
+                        {
+                            return MookClassEntry(
+                                name = rs.getString("name"),
+                                pool = rs.getString("pool"),
+                                description = rs.getString("description"),
+                                skill = rs.getString("skill")
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception)
+        {
+            println("Database.getRandomMookClass failed: ${e.message}")
+            e.printStackTrace()
+        }
+        return null
+    }
+
+    fun getRandomMookBackstory(): MookBackstoryEntry?
+    {
+        try
+        {
+            connect().use { conn ->
+                conn.prepareStatement("SELECT behavior, history FROM mook_backstories ORDER BY RANDOM() LIMIT 1").use { ps ->
+                    ps.executeQuery().use { rs ->
+                        if (rs.next())
+                        {
+                            return MookBackstoryEntry(
+                                behavior = rs.getString("behavior"),
+                                history = rs.getString("history")
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception)
+        {
+            println("Database.getRandomMookBackstory failed: ${e.message}")
             e.printStackTrace()
         }
         return null
