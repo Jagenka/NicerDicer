@@ -9,6 +9,8 @@ import de.nicerdicer.functions.FactionFunction
 import de.nicerdicer.functions.FlawFunction
 import de.nicerdicer.functions.FunctionBase
 import de.nicerdicer.functions.LegacyRollFunction
+import de.nicerdicer.functions.MercFunction
+import de.nicerdicer.functions.MookFunction
 import de.nicerdicer.functions.PerkFunction
 import de.nicerdicer.functions.QuickTagFunction
 import de.nicerdicer.functions.ReputationFunction
@@ -41,7 +43,9 @@ object Registry
         AlignmentFunction,
         RolePermissionsFunction,
         ReputationFunction,
-        FactionFunction
+        FactionFunction,
+        MookFunction,
+        MercFunction
     )
 
     val commandMap = mutableMapOf<String, FunctionBase>()

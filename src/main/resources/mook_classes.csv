@@ -1,0 +1,57 @@
+Name,Pool,Description,Skill
+Bruiser,General,Melee alpha strikes inflict +1m1l,Brawl
+David,Rare,Always attacks capes at a total modifier of +5 before non stat penalties.,Willpower
+EMT,General,Has advantage when suppressing battle wounds. Can stabilize trauma patients.,Medical
+Doctor,Rare,Can treat people for long term diseases or effects if they have the resources and time,Medical
+Pickpocket,Geneal,Can steal anything not being held from an adjacent person. If successful said target does not notice.,Thievery
+Robber,Rare,Can pick up valuable items as part of movement. Weight and capacity for these items are halved.,Thievery
+Techie,General,"Good at opening and understanding technology, (+4 to rolls)",Computers
+Hacker,Rare,Can focus on securing a base against attacks (requiring 24+ to break).,Computers
+Trainee,General,Gets 3 pips in any skill their stats allow.,
+Tactician,Rare,Can spend their partial action to grant another goon a partial action.,Command
+Parkourist,General,Can roll a contested acrobatics check to escape.,Acrobatics
+Urban Monkey,Rare,Can hang from walls and ceilings if arms are free.,Acrobatics
+Escape Driver,General,+2 to rolls meant to throw off a tailing vehicle.,Driving
+Handyman,General,Can repair one module each week.,
+Mechanic,Rare,Can repair one vehicle each week.,
+Dealer,General,Increases income by 100. Capping at 4 per drug lab.,Charm
+Chemist,Rare,Drug selling rewards 50% more cash. Does not stack.,Medical
+Artist,General,Adds $50 to income.,
+Mortician,Rare,Can determine the cause of death of a body. Including noting parahuman results.,Medical
+Martial Artist,General,Unarmed melee attacks inflict K.O.,Martial Arts
+Janitor,Rare,Can clean up blood and human waste from a room once a week.,Deception
+Fence,General,Can sell the crap you get for untraced cash.,
+Scout,General,+2 to awareness rolls against sneaks.,Awareness
+Gambler,General,"Each week flip a coin. On heads you win $1400, on tails you lose $1000",
+Journalist,Rare,Can paint you in a better light for an uncoming newspost you are aware of once a month. Does not stack.,
+Actor,General,Raises difficulty of streetsmarts 3rd pip to DC20,Deception
+Clandestine,Rare,Raises difficulty of streetsmarts 3rd pip to DC22,Deception
+Loyalist,General,+2 against interrogation attempts.,Willpower
+Fanatic,Rare,Immune to all but the first two pips of threaten. +4 against interrogation attempts.,Willpower
+Arsonist,General,Has an effectively infinite personal supply of molotovs,Gunfight
+Butler,General,+1 to social rolls when RPing in your base with this mook. Has minor tools at hand,
+Bouncer,General,Can threaten civilians without a roll,Threaten
+Enforcer,Rare,Counts as a cape for threaten where it would benefit. +2 to threaten rolls,Threaten
+Hawkeye,General,Makes AoOs at +2,Critical
+Sentinel,Rare,Makes AoOs at +2. Can make AoOs for shifting without this bonus,Critical
+Sewer Rat,General,Can infiltrate bases with the Sewer flaw without a roll(must still roll to sneak around inside),Sneak
+Warden,General,Can guard multiple holding cells at once,Awareness
+Pidgeon Feeder,General,+2 to rolls to look completely innocuous,Charm
+Hauler,General,Can move at normal speed while carrying heavy loads,Strongarm
+Fencer,Rare,"When attacking with a single sword/greatsword, gain +2 to hit and +2ap",Finesse
+Slugger,General,Nonlethal. Gain +2 KB on alpha strikes. Can use brawn for threaten,Brawl
+Cockroach,General,Can reroll conc once per fight,Withstand
+Messenger,General,"On failing conc by 2 or less, does not go unconscious. Instead spends future turns running away",Driving
+Contortionist,Rare,Can escape standard bindings with a DC16 dex check,Finesse
+Courier,General,Expendable. When lost to anything less than Stage 3 consequences you do not suffer penalties,
+Forger,Rare,Can fake IDs and other paperwork with deception opposed by scrutinize,Deception
+Crier,General,"Can rile up civilians with a charm roll, 1 civilian for every 2 points above 14.",Charm
+Preacher,Rare,Can rile up unaffiliated civilians,Charm
+Flagbearer,Rare,May spend their standard to grant all mooks +1 to hit on their next attack,Tactics
+Sniper,Mercenary,Owns a sniper rifle. Can spend a full round action to gain +4 to hit a target next round as long as LoS is not broken.,Aim
+Infiltrator,Mercenary,"Once a week can roll steath against the awareness of one faction's guard mooks. Learns intell about specific base if successful. If not, must attempt to flee.",Sneak
+Interogator,Mercenary,+4 against verbal deception.,Scrutinize
+Anti-Rioter,Mercenary,"When wielding a riot shield, gain 2 shield specs and can wield batons with FTW.",Guard
+Demolitionist,Mercenary,AoE grenades and rockets expand by 1 square.,Aim
+Counter Terrorist,Mercenary,Has access to nondamaging grenades and can throw them as a partial action when wielding a machine pistol.,Barrage
+Lawyer,Mercenary,Once per month can pay 20k to force a news board post to be rewritten in a more negative light. Cannot stack,Threaten

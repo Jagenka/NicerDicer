@@ -70,3 +70,16 @@ data class FactionEntry(
     val memberList: String,           // comma-separated list of user IDs
     val alignment: String
 )
+
+data class MookClassEntry(
+    val name: String,
+    val pool: String,
+    val description: String,
+    val skill: String?
+)
+
+data class MookBackstoryEntry(
+    val behavior: String,
+    val history: String
+)
+
