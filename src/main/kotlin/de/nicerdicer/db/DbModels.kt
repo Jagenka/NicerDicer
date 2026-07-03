@@ -41,7 +41,8 @@ data class TagEntry(
 data class TerritoryEntry(
     val id: Int,
     val name: String,
-    val owner: String?,             // user id as string, null if unowned
+    val ownerId: String?,           // user id or faction name as string, null if unowned
+    val ownerType: String?,         // "user" or "faction", null if unowned
     val color: String?              // territory color: "White" (unclaimed), "Yellow" (Good), "Purple" (Evil), "Turquoise" (Quest), "DarkGray" (Challenged)
 )
 

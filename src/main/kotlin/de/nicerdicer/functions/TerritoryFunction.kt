@@ -17,8 +17,6 @@ import java.io.File
 import javax.imageio.ImageIO
 import java.util.ArrayDeque
 import java.awt.Color
-import java.nio.file.Files
-import java.nio.file.Path
 
 object TerritoryFunction : FunctionBase("territory", "Everything concerning territories.")
 {
@@ -64,6 +62,10 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                 string("id", "Territory id (number)") { required = true }
                 string("name", "Optional: give this territory a custom name") { required = false }
             }
+            subCommand("fclaim", "Claim a territory for your faction (type inferred from faction alignment)") {
+                string("id", "Territory id") { required = true }
+                string("name", "Optional: give this territory a custom name") {}
+            }
             subCommand("release", "Release a territory you own (mods can release any)") {
                 string("id", "Territory id (number)") { required = true }
             }
@@ -78,6 +80,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                 string("id", "Territory id (number)") { required = true }
                 string("name", "New territory name") { required = true }
             }
+            subCommand("update", "Update territory colors based on alignment") { }
             subCommand("list", "List all territories and owners") { }
             subCommand("map", "Show current map image with colored territories") { }
         }
@@ -110,8 +113,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
 
             when (subCommand)
             {
-                "claim" ->
-                {
+                "claim" -> {
                     val idText = event.interaction.command.strings["id"]?.trim().orEmpty()
                     val nameOpt = event.interaction.command.strings["name"]?.trim()
                     val id = idText.toIntOrNull()
@@ -124,7 +126,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
 
                     if (!TERRITORY_COORDS.containsKey(id))
                     {
-                        response.respond { content = "Territory $id is not claimable. Only territories listed in the map coordinates may be claimed." }
+                        response.respond { content = "Territory $id is not claimable. Only territories listed in '/territory list' may be claimed." }
                         return
                     }
 
@@ -158,7 +160,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                         }
                     }
 
-                    val ok = Database.claimTerritory(id, ownerId, guildIdVal, nameOpt, type)
+                    val ok = Database.claimTerritory(id, ownerId, guildIdVal, nameOpt, type, "user")
                     if (!ok)
                     {
                         response.respond { content = "Failed to claim territory $id. It may already be owned by someone else." }
@@ -181,8 +183,59 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
                 }
 
-                "release" ->
-                {
+                "fclaim" -> {
+                    val idText = event.interaction.command.strings["id"]?.trim().orEmpty()
+                    val nameOpt = event.interaction.command.strings["name"]?.trim()
+                    val id = idText.toIntOrNull()
+
+                    if (id == null)
+                    {
+                        response.respond { content = "Usage: /territory fclaim id:<number> [name:optional]" }
+                        return
+                    }
+
+                    if (!TERRITORY_COORDS.containsKey(id))
+                    {
+                        response.respond { content = "Territory $id is not claimable. Only territories listed in '/territory list' may be claimed." }
+                        return
+                    }
+
+                    val userId = event.interaction.user.id.toString()
+
+                    val faction = Database.getFactionOfUser(guildIdVal, userId)
+
+                    if (faction == null)
+                    {
+                        response.respond { content = "You are not in a faction." }
+                        return
+                    }
+
+                    val factionName = faction.name
+
+                    val ok = Database.claimTerritory(id, factionName, guildIdVal, nameOpt, faction.color, "faction")
+                    if (!ok)
+                    {
+                        response.respond { content = "Failed to claim territory $id. It may already be owned by someone else." }
+                        return
+                    }
+
+                    try
+                    {
+                        val outPath = renderFullMapWithClaims(guildIdVal)
+                        val f = File(outPath)
+                        response.respond {
+                            content = "Territory $id claimed for faction ${faction.name} and map updated."
+                            addFile(f.toPath())
+                        }
+                    } catch (e: Exception)
+                    {
+                        println("TerritoryFunction.execute: no base map found or failed generating map after claim for id $id: ${e.message}")
+                        e.printStackTrace()
+                        response.respond { content = "Territory claimed, but something went wrong with map generation." }
+                    }
+                }
+
+                "release" -> {
                     val idText = event.interaction.command.strings["id"]?.trim().orEmpty()
                     val id = idText.toIntOrNull()
                     if (id == null)
@@ -197,12 +250,23 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                         return
                     }
 
-                    val ownerId = event.interaction.user.id.toString()
+                    val userId = event.interaction.user.id.toString()
                     val isMod = RolePermissionsFunction.isModerator(guildIdVal, event.interaction.user)
-                    val ok = if (isMod) Database.releaseTerritoryByModerator(id, guildIdVal) else Database.releaseTerritory(id, ownerId, guildIdVal)
+                    
+                    val ok = if (isMod)
+                    {
+                        Database.releaseTerritoryByModerator(id, guildIdVal)
+                    } else
+                    {
+                        val userFaction = Database.getFactionOfUser(guildIdVal, userId)
+                        val callerOwnerId = userFaction?.name ?: userId
+                        val callerOwnerType = if (userFaction != null) "faction" else "user"
+                        Database.releaseTerritory(id, callerOwnerId, guildIdVal, callerOwnerType)
+                    }
+                    
                     if (!ok)
                     {
-                        response.respond { content = "Failed to release territory $id. It may not be owned by you or may not exist." }
+                        response.respond { content = "Failed to release territory $id. It may not be owned by you (or your faction) or may not exist." }
                         return
                     }
 
@@ -222,8 +286,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
                 }
 
-                "quest" ->
-                {
+                "quest" -> {
                     val idText = event.interaction.command.strings["id"]?.trim().orEmpty()
                     val nameOpt = event.interaction.command.strings["name"]?.trim()
                     val id = idText.toIntOrNull()
@@ -248,7 +311,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
 
                     val ownerId = event.interaction.user.id.toString()
-                    val ok = Database.claimTerritory(id, ownerId, guildIdVal, nameOpt, "Quest")
+                    val ok = Database.claimTerritory(id, ownerId, guildIdVal, nameOpt, "Quest", "user")
                     if (!ok)
                     {
                         response.respond { content = "Failed to claim territory $id as a quest. It may already be owned by someone else." }
@@ -271,8 +334,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
                 }
 
-                "challenge" ->
-                {
+                "challenge" -> {
                     val idText = event.interaction.command.strings["id"]?.trim().orEmpty()
                     val id = idText.toIntOrNull()
                     if (id == null)
@@ -310,8 +372,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
                 }
 
-                "rename" ->
-                {
+                "rename" -> {
                     val idText = event.interaction.command.strings["id"]?.trim().orEmpty()
                     val newName = event.interaction.command.strings["name"]?.trim().orEmpty()
                     val id = idText.toIntOrNull()
@@ -325,11 +386,17 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                         response.respond { content = "Territory $id is not managed by the map and cannot be renamed via this command." }
                         return
                     }
-                    val ownerId = event.interaction.user.id.toString()
-                    val ok = Database.renameTerritory(id, ownerId, guildIdVal, newName)
+                    val userId = event.interaction.user.id.toString()
+                    val userFaction = Database.getFactionOfUser(guildIdVal, userId)
+                    
+                    // Determine caller owner type and ID
+                    val callerOwnerId = userFaction?.name ?: userId
+                    val callerOwnerType = if (userFaction != null) "faction" else "user"
+                    
+                    val ok = Database.renameTerritory(id, callerOwnerId, guildIdVal, newName, callerOwnerType)
                     if (!ok)
                     {
-                        response.respond { content = "Failed to rename territory $id. Ensure you own it and the new name is unique (case-insensitive)." }
+                        response.respond { content = "Failed to rename territory $id. Ensure you own it (or are in the faction that owns it) and the new name is unique (case-insensitive)." }
                         return
                     }
                     response.respond {
@@ -337,8 +404,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
                 }
 
-                "list" ->
-                {
+                "list" -> {
                     val list = Database.listTerritories(guildIdVal)
                     if (list.isEmpty())
                     {
@@ -348,28 +414,33 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     val sb = StringBuilder()
                     for (t in list)
                     {
-                        val ownerDesc = if (t.owner == null) "unowned" else try
+                        val ownerDesc = if (t.ownerId == null) "unowned" else try
                         {
-                            "${"Owner:".bold()} ${
-                                getMemberName(
-                                    kord,
-                                    event.interaction.data.guildId.value,
-                                    Snowflake(t.owner)
-                                ).box()
-                            } ${"Color:".bold()} ${(t.color ?: "White").box()}"
+                            if (t.ownerType == "faction")
+                            {
+                                "${"Faction:".bold()} ${t.ownerId} ${"Color:".bold()} ${(t.color ?: "White")}"
+                            } else
+                            {
+                                "${"Owner:".bold()} ${
+                                    getMemberName(
+                                        kord,
+                                        event.interaction.data.guildId.value,
+                                        Snowflake(t.ownerId)
+                                    )
+                                } ${"Color:".bold()} ${(t.color ?: "White")}"
+                            }
                         } catch (e: Exception)
                         {
-                            println("TerritoryFunction.list: getMemberName failed: ${e.message}")
+                            println("TerritoryFunction.list: display failed: ${e.message}")
                             e.printStackTrace()
-                            "${"Owner:".bold()} ${t.owner.box()} ${"Color:".bold()} ${(t.color ?: "White").box()}"
+                            "${"Owner:".bold()} ${t.ownerId} ${if (t.ownerType != null) "(${t.ownerType})" else ""} ${"Color:".bold()} ${(t.color ?: "White")}"
                         }
                         sb.append("ID ${t.id}: ${t.name} - $ownerDesc\n")
                     }
                     response.respond { content = sb.toString() }
                 }
 
-                "map" ->
-                {
+                "map" -> {
                     try
                     {
                         val outPath = renderFullMapWithClaims(guildIdVal)
@@ -386,8 +457,25 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
                     }
                 }
 
-                else ->
-                {
+                "update" -> {
+                    try
+                    {
+                        val updateCount = updateTerritoryColors(guildIdVal)
+                        val outPath = renderFullMapWithClaims(guildIdVal)
+                        val f = File(outPath)
+                        response.respond {
+                            content = "Updated $updateCount territories based on alignment and map regenerated."
+                            addFile(f.toPath())
+                        }
+                    } catch (e: Exception)
+                    {
+                        println("TerritoryFunction.execute.update failed: ${e.message}")
+                        e.printStackTrace()
+                        response.respond { content = "Failed to update territories: ${e.message}" }
+                    }
+                }
+
+                else -> {
                     response.respond { content = "Unknown subcommand. Use claim/release/challenge/rename/list/map." }
                 }
             }
@@ -416,7 +504,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
             val color = t.color
             if (coord != null && color != null)
             {
-                val hexColor = getHexForColor(color)
+                val hexColor = getHexForColor(color) ?: color
                 floodFillBounded(img, coord.first, coord.second, parseHexColor(hexColor))
             }
         }
@@ -431,7 +519,7 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
     /**
      * Convert color name to hex for rendering (#RRGGBB).
      */
-    private fun getHexForColor(color: String): String
+    private fun getHexForColor(color: String): String?
     {
         return when (color)
         {
@@ -440,8 +528,65 @@ object TerritoryFunction : FunctionBase("territory", "Everything concerning terr
             "Purple" -> COLOR_EVIL
             "Turquoise" -> COLOR_QUEST
             "DarkGray" -> COLOR_CHALLENGED
-            else -> COLOR_UNCLAIMED
+            else -> null
         }
+    }
+
+    /**
+     * Update all territories' colors based on their owner's alignment.
+     * Skips Quest, Challenged, and unowned territories.
+     * Returns the count of updated territories.
+     */
+    private fun updateTerritoryColors(guildId: String): Int
+    {
+        val territories = Database.listTerritories(guildId)
+        var updateCount = 0
+
+        for (t in territories)
+        {
+            // Skip unowned territories, quest territories, and challenged territories
+            if (t.ownerId == null || t.color == COLOR_QUEST || t.color == COLOR_CHALLENGED)
+            {
+                continue
+            }
+
+            val newColor = try
+            {
+                when (t.ownerType)
+                {
+                    "user" -> {
+                        val alignment = Database.getAlignment(guildId, t.ownerId)
+                        when (alignment?.intent)
+                        {
+                            "Good" -> "Yellow"
+                            "Evil" -> "Purple"
+                            else -> continue
+                        }
+                    }
+                    "faction" -> {
+                        val faction = Database.getFaction(guildId, t.ownerId)
+                        faction?.color ?: throw IllegalArgumentException("Faction ${t.ownerId} does not exist.")
+                    }
+                    else -> continue
+                }
+            } catch (e: Exception)
+            {
+                println("TerritoryFunction.updateTerritoryColors: error determining color for territory ${t.id}: ${e.message}")
+                continue
+            }
+
+            // Update the territory color if it changed
+            if (newColor != t.color)
+            {
+                val success = Database.updateTerritoryColor(t.id, guildId, newColor)
+                if (success)
+                {
+                    updateCount++
+                }
+            }
+        }
+
+        return updateCount
     }
 
     // #RRGGBB -> ARGB int
