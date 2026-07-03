@@ -59,7 +59,8 @@ object Database
                                 guild TEXT NOT NULL,
                                 id INTEGER NOT NULL,
                                 name TEXT COLLATE NOCASE,
-                                owner TEXT,
+                                owner_id TEXT,
+                                owner_type TEXT,
                                 color TEXT,
                                 PRIMARY KEY (guild, id),
                                 UNIQUE (guild, name)
@@ -768,7 +769,6 @@ object Database
     //endregion
 
     //region Color Helpers
-
     /**
      * Map a territory type to its predefined color.
      */
@@ -807,24 +807,25 @@ object Database
     /**
      * Claim a territory by numeric id within a guild. Only allowed if territory is unowned or already owned by caller.
      * Type can be "Good", "Evil", or "Quest"; otherwise defaults to unclaimed (White).
+     * ownerType must be "user" or "faction".
      * Returns true on success.
      */
-    fun claimTerritory(id: Int, ownerId: String, guildId: String, optionalName: String? = null, type: String? = null): Boolean
+    fun claimTerritory(id: Int, ownerId: String, guildId: String, optionalName: String? = null, type: String? = null, ownerType: String = "user"): Boolean
     {
         init()
         try
         {
             connect().use { conn ->
-                conn.prepareStatement("SELECT owner FROM territories WHERE guild = ? AND id = ?").use { ps ->
+                conn.prepareStatement("SELECT owner_id, owner_type FROM territories WHERE guild = ? AND id = ?").use { ps ->
                     ps.setString(1, guildId)
                     ps.setInt(2, id)
                     ps.executeQuery().use { rs ->
                         if (rs.next())
                         {
-                            val existingOwner = rs.getString("owner")
-                            if (existingOwner != null && existingOwner != ownerId)
+                            val existingOwnerId = rs.getString("owner_id")
+                            if (existingOwnerId != null && existingOwnerId != ownerId)
                             {
-                                println("Database.claimTerritory: territory $id in guild $guildId already owned by $existingOwner")
+                                println("Database.claimTerritory: territory $id in guild $guildId already owned by $existingOwnerId")
                                 return false
                             }
                         }
@@ -835,29 +836,31 @@ object Database
                 if (optionalName != null)
                 {
                     conn.prepareStatement(
-                        "INSERT INTO territories(guild,id,name,owner,color) VALUES(?,?,?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner=excluded.owner, name=COALESCE(excluded.name,territories.name), color=excluded.color"
+                        "INSERT INTO territories(guild,id,name,owner_id,owner_type,color) VALUES(?,?,?,?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner_id=excluded.owner_id, owner_type=excluded.owner_type, name=COALESCE(excluded.name,territories.name), color=excluded.color"
                     ).use { ps ->
                         ps.setString(1, guildId)
                         ps.setInt(2, id)
                         ps.setString(3, optionalName)
                         ps.setString(4, ownerId)
-                        ps.setString(5, color)
+                        ps.setString(5, ownerType)
+                        ps.setString(6, color)
                         ps.executeUpdate()
                     }
                 } else
                 {
                     conn.prepareStatement(
-                        "INSERT INTO territories(guild,id,owner,color) VALUES(?,?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner=excluded.owner, color=excluded.color"
+                        "INSERT INTO territories(guild,id,owner_id,owner_type,color) VALUES(?,?,?,?,?) ON CONFLICT(guild,id) DO UPDATE SET owner_id=excluded.owner_id, owner_type=excluded.owner_type, color=excluded.color"
                     ).use { ps ->
                         ps.setString(1, guildId)
                         ps.setInt(2, id)
                         ps.setString(3, ownerId)
-                        ps.setString(4, color)
+                        ps.setString(4, ownerType)
+                        ps.setString(5, color)
                         ps.executeUpdate()
                     }
                 }
             }
-            println("Database.claimTerritory: owner $ownerId claimed territory $id in guild $guildId with type $type")
+            println("Database.claimTerritory: owner $ownerId (type=$ownerType) claimed territory $id in guild $guildId with type $type")
             return true
         } catch (e: Exception)
         {
@@ -868,16 +871,16 @@ object Database
     }
 
     /**
-     * Release a territory in a specific guild. Only allowed if caller is owner.
+     * Release a territory in a specific guild. Only allowed if caller is owner or member of owning faction.
      * Resets the territory name to default ("Territory <id>") and color to "White" (unclaimed) when released.
      */
-    fun releaseTerritory(id: Int, ownerId: String, guildId: String): Boolean
+    fun releaseTerritory(id: Int, callerId: String, guildId: String, callerOwnerType: String = "user"): Boolean
     {
         init()
         try
         {
             connect().use { conn ->
-                conn.prepareStatement("SELECT owner FROM territories WHERE guild = ? AND id = ?").use { ps ->
+                conn.prepareStatement("SELECT owner_id, owner_type FROM territories WHERE guild = ? AND id = ?").use { ps ->
                     ps.setString(1, guildId)
                     ps.setInt(2, id)
                     ps.executeQuery().use { rs ->
@@ -886,22 +889,37 @@ object Database
                             println("Database.releaseTerritory: territory $id in guild $guildId does not exist.")
                             return false
                         }
-                        val existingOwner = rs.getString("owner")
-                        if (existingOwner == null)
+                        val existingOwnerId = rs.getString("owner_id")
+                        val existingOwnerType = rs.getString("owner_type")
+                        if (existingOwnerId == null)
                         {
                             println("Database.releaseTerritory: territory $id in guild $guildId is already unowned.")
                             return false
                         }
-                        if (existingOwner != ownerId)
+                        
+                        // Check ownership based on owner type
+                        if (existingOwnerType == "faction")
                         {
-                            println("Database.releaseTerritory: owner mismatch (expected $existingOwner, got $ownerId) for guild $guildId.")
-                            return false
+                            // For faction territories, check if caller is a member
+                            if (callerOwnerType != "faction" || callerId != existingOwnerId)
+                            {
+                                println("Database.releaseTerritory: caller $callerId is not a member of faction $existingOwnerId.")
+                                return false
+                            }
+                        } else
+                        {
+                            // For user territories, check if caller is the owner
+                            if (existingOwnerId != callerId)
+                            {
+                                println("Database.releaseTerritory: owner mismatch (expected $existingOwnerId, got $callerId) for guild $guildId.")
+                                return false
+                            }
                         }
                     }
                 }
                 // Reset owner, name to default, and color to White (unclaimed)
                 val defaultName = "Territory $id"
-                conn.prepareStatement("UPDATE territories SET owner = NULL, name = ?, color = ? WHERE guild = ? AND id = ?").use { ps ->
+                conn.prepareStatement("UPDATE territories SET owner_id = NULL, owner_type = NULL, name = ?, color = ? WHERE guild = ? AND id = ?").use { ps ->
                     ps.setString(1, defaultName)
                     ps.setString(2, "White")
                     ps.setString(3, guildId)
@@ -909,11 +927,11 @@ object Database
                     ps.executeUpdate()
                 }
             }
-            println("Database.releaseTerritory: owner $ownerId released territory $id in guild $guildId and name reset to default.")
+            println("Database.releaseTerritory: caller $callerId released territory $id in guild $guildId and name reset to default.")
             return true
         } catch (e: Exception)
         {
-            println("Database.releaseTerritory failed for id=$id owner=$ownerId guild=$guildId: ${e.message}")
+            println("Database.releaseTerritory failed for id=$id caller=$callerId guild=$guildId: ${e.message}")
             e.printStackTrace()
             return false
         }
@@ -930,7 +948,7 @@ object Database
             connect().use { conn ->
                 // Reset owner, name to default, and color to White (unclaimed)
                 val defaultName = "Territory $id"
-                conn.prepareStatement("UPDATE territories SET owner = NULL, name = ?, color = ? WHERE guild = ? AND id = ?").use { ps ->
+                conn.prepareStatement("UPDATE territories SET owner_id = NULL, owner_type = NULL, name = ?, color = ? WHERE guild = ? AND id = ?").use { ps ->
                     ps.setString(1, defaultName)
                     ps.setString(2, "White")
                     ps.setString(3, guildId)
@@ -967,7 +985,7 @@ object Database
                 conn.autoCommit = false
                 try
                 {
-                    conn.prepareStatement("INSERT OR IGNORE INTO territories(guild,id,name,owner,color) VALUES(?,?,?,NULL,?)").use { ps ->
+                    conn.prepareStatement("INSERT OR IGNORE INTO territories(guild,id,name,owner_id,owner_type,color) VALUES(?,?,?,NULL,NULL,?)").use { ps ->
                         for (id in ids)
                         {
                             ps.setString(1, guildId)
@@ -999,9 +1017,11 @@ object Database
 
     /**
      * Rename a territory in a guild. Only the original owner may rename.
+     * For user-owned territories: caller must be the owner.
+     * For faction-owned territories: caller must be a member of the faction.
      * Ensures name uniqueness (case-insensitive within guild). Returns true on success.
      */
-    fun renameTerritory(id: Int, ownerId: String, guildId: String, newName: String): Boolean
+    fun renameTerritory(id: Int, callerId: String, guildId: String, newName: String, callerOwnerType: String = "user"): Boolean
     {
         init()
         val trimmed = newName.trim()
@@ -1013,8 +1033,8 @@ object Database
         try
         {
             connect().use { conn ->
-                // ensure territory exists and owner matches
-                conn.prepareStatement("SELECT owner FROM territories WHERE guild = ? AND id = ?").use { ps ->
+                // ensure territory exists and caller can rename it
+                conn.prepareStatement("SELECT owner_id, owner_type FROM territories WHERE guild = ? AND id = ?").use { ps ->
                     ps.setString(1, guildId)
                     ps.setInt(2, id)
                     ps.executeQuery().use { rs ->
@@ -1023,11 +1043,31 @@ object Database
                             println("Database.renameTerritory: territory $id in guild $guildId does not exist.")
                             return false
                         }
-                        val existingOwner = rs.getString("owner")
-                        if (existingOwner == null || existingOwner != ownerId)
+                        val existingOwnerId = rs.getString("owner_id")
+                        val existingOwnerType = rs.getString("owner_type")
+                        if (existingOwnerId == null)
                         {
-                            println("Database.renameTerritory: owner mismatch or unowned for territory $id in guild $guildId (owner=$existingOwner, caller=$ownerId).")
+                            println("Database.renameTerritory: territory $id in guild $guildId is unowned.")
                             return false
+                        }
+                        
+                        // Check ownership based on owner type
+                        if (existingOwnerType == "faction")
+                        {
+                            // For faction territories, check if caller is a member
+                            if (callerOwnerType != "faction" || callerId != existingOwnerId)
+                            {
+                                println("Database.renameTerritory: caller $callerId is not a member of faction $existingOwnerId.")
+                                return false
+                            }
+                        } else
+                        {
+                            // For user territories, check if caller is the owner
+                            if (existingOwnerId != callerId)
+                            {
+                                println("Database.renameTerritory: owner mismatch (expected $existingOwnerId, got $callerId) for territory $id in guild $guildId.")
+                                return false
+                            }
                         }
                     }
                 }
@@ -1059,7 +1099,7 @@ object Database
             return true
         } catch (e: Exception)
         {
-            println("Database.renameTerritory failed for id=$id owner=$ownerId guild=$guildId newName='$newName': ${e.message}")
+            println("Database.renameTerritory failed for id=$id caller=$callerId guild=$guildId newName='$newName': ${e.message}")
             e.printStackTrace()
             return false
         }
@@ -1104,7 +1144,34 @@ object Database
     }
 
     /**
-     * List all territories for a given guild with color.
+     * Update a territory's color.
+     * Returns true on success.
+     */
+    fun updateTerritoryColor(id: Int, guildId: String, newColor: String): Boolean
+    {
+        init()
+        try
+        {
+            connect().use { conn ->
+                conn.prepareStatement("UPDATE territories SET color = ? WHERE guild = ? AND id = ?").use { ps ->
+                    ps.setString(1, newColor)
+                    ps.setString(2, guildId)
+                    ps.setInt(3, id)
+                    ps.executeUpdate()
+                }
+            }
+            println("Database.updateTerritoryColor: territory $id in guild $guildId color updated to $newColor.")
+            return true
+        } catch (e: Exception)
+        {
+            println("Database.updateTerritoryColor failed for id=$id guild=$guildId newColor=$newColor: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    /**
+     * List all territories for a given guild with color and owner type.
      */
     fun listTerritories(guildId: String): List<TerritoryEntry>
     {
@@ -1115,7 +1182,7 @@ object Database
             connect().use { conn ->
                 conn.prepareStatement(
                     """
-                    SELECT t.id as id, t.name as name, t.owner as owner, t.color as color
+                    SELECT t.id as id, t.name as name, t.owner_id as owner_id, t.owner_type as owner_type, t.color as color
                     FROM territories t
                     WHERE t.guild = ?
                     ORDER BY t.id
@@ -1129,7 +1196,8 @@ object Database
                                 TerritoryEntry(
                                     id = rs.getInt("id"),
                                     name = rs.getString("name") ?: "Territory ${rs.getInt("id")}",
-                                    owner = rs.getString("owner"),
+                                    ownerId = rs.getString("owner_id"),
+                                    ownerType = rs.getString("owner_type"),
                                     color = rs.getString("color") ?: "White"
                                 )
                             )
@@ -1340,7 +1408,6 @@ object Database
         ownerId: String,
         roleId: String,
         description: String,
-        image: String?,
         color: String,
         alignment: String
     ): Boolean
@@ -1371,7 +1438,7 @@ object Database
                     ps.setString(3, ownerId)
                     ps.setString(4, roleId)
                     ps.setString(5, description)
-                    ps.setString(6, image)
+                    ps.setString(6, null)
                     ps.setString(7, color)
                     ps.setString(8, ownerId)  // initialize memberList with owner
                     ps.setString(9, alignment)
@@ -1395,7 +1462,7 @@ object Database
     }
 
     /**
-     * Update a faction's description and/or image. Only the original owner may update.
+     * Update a faction. All updates are done in a single transaction.
      * Returns true on success, false otherwise.
      */
     fun updateFaction(
@@ -1405,6 +1472,7 @@ object Database
         newDescription: String?,
         newImage: String?,
         newColor: String,
+        newMemberList: String,
         alignment: String
     ): Boolean
     {
@@ -1412,6 +1480,7 @@ object Database
         try
         {
             connect().use { conn ->
+                // First verify faction exists
                 conn.prepareStatement("SELECT ownerId FROM factions WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
                     ps.setString(1, guildId)
                     ps.setString(2, name)
@@ -1423,39 +1492,72 @@ object Database
                         }
                     }
                 }
-                conn.prepareStatement("UPDATE factions SET description = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
-                    ps.setString(1, newDescription)
-                    ps.setString(2, guildId)
-                    ps.setString(3, name)
-                    ps.executeUpdate()
-                }
-                conn.prepareStatement("UPDATE factions SET image = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
-                    ps.setString(1, newImage)
-                    ps.setString(2, guildId)
-                    ps.setString(3, name)
-                    ps.executeUpdate()
-                }
-                conn.prepareStatement("UPDATE factions SET color = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
-                    ps.setString(1, newColor)
-                    ps.setString(2, guildId)
-                    ps.setString(3, name)
-                    ps.executeUpdate()
-                }
-                conn.prepareStatement("UPDATE factions SET ownerId = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
-                    ps.setString(1, ownerId)
-                    ps.setString(2, guildId)
-                    ps.setString(3, name)
-                    ps.executeUpdate()
-                }
-                conn.prepareStatement("UPDATE factions SET alignment = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
-                    ps.setString(1, alignment)
-                    ps.setString(2, guildId)
-                    ps.setString(3, name)
-                    ps.executeUpdate()
+
+                // Start transaction
+                val autoCommitBefore = conn.autoCommit
+                conn.autoCommit = false
+                try
+                {
+                    // Update all fields
+                    var updated = 0
+
+                    conn.prepareStatement("UPDATE factions SET description = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                        ps.setString(1, newDescription)
+                        ps.setString(2, guildId)
+                        ps.setString(3, name)
+                        updated += ps.executeUpdate()
+                    }
+
+                    conn.prepareStatement("UPDATE factions SET image = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                        ps.setString(1, newImage)
+                        ps.setString(2, guildId)
+                        ps.setString(3, name)
+                        updated += ps.executeUpdate()
+                    }
+
+                    conn.prepareStatement("UPDATE factions SET color = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                        ps.setString(1, newColor)
+                        ps.setString(2, guildId)
+                        ps.setString(3, name)
+                        updated += ps.executeUpdate()
+                    }
+
+                    conn.prepareStatement("UPDATE factions SET ownerId = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                        ps.setString(1, ownerId)
+                        ps.setString(2, guildId)
+                        ps.setString(3, name)
+                        updated += ps.executeUpdate()
+                    }
+
+                    conn.prepareStatement("UPDATE factions SET memberList = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                        ps.setString(1, newMemberList)
+                        ps.setString(2, guildId)
+                        ps.setString(3, name)
+                        updated += ps.executeUpdate()
+                    }
+
+                    conn.prepareStatement("UPDATE factions SET alignment = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                        ps.setString(1, alignment)
+                        ps.setString(2, guildId)
+                        ps.setString(3, name)
+                        updated += ps.executeUpdate()
+                    }
+
+                    println("Database.updateFaction: executed ${updated / 6} faction updates for '$name' in guild $guildId")
+                    conn.commit()
+                    println("Database.updateFaction: successfully updated faction '$name' in guild $guildId")
+                    return true
+                } catch (e: Exception)
+                {
+                    conn.rollback()
+                    println("Database.updateFaction: transaction rolled back for '$name': ${e.message}")
+                    e.printStackTrace()
+                    return false
+                } finally
+                {
+                    conn.autoCommit = autoCommitBefore
                 }
             }
-            println("Database.updateFaction: updated faction '$name' in guild $guildId")
-            return true
         } catch (e: Exception)
         {
             println("Database.updateFaction failed for '$name': ${e.message}")
@@ -1586,87 +1688,39 @@ object Database
         return res
     }
 
-    /**
-     * Add a member to a faction's memberList.
-     */
-    fun addFactionMember(guildId: String, factionName: String, userId: String): Boolean
+    fun getFactionOfUser(guildId: String, userId: String): FactionEntry?
     {
         init()
         try
         {
             connect().use { conn ->
-                conn.prepareStatement("SELECT memberList FROM factions WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
+                conn.prepareStatement("SELECT guild, name, ownerId, roleId, description, image, color, memberList, alignment FROM factions WHERE guild = ? AND memberList LIKE ?").use { ps ->
                     ps.setString(1, guildId)
-                    ps.setString(2, factionName)
+                    ps.setString(2, "%$userId%")
                     ps.executeQuery().use { rs ->
-                        if (!rs.next())
+                        if (rs.next())
                         {
-                            println("Database.addFactionMember: faction '$factionName' does not exist in guild $guildId.")
-                            return false
-                        }
-                        var memberList = rs.getString("memberList") ?: ""
-                        if (!memberList.contains(userId))
-                        {
-                            memberList = if (memberList.isEmpty()) userId else "$memberList,$userId"
-                        }
-                        conn.prepareStatement("UPDATE factions SET memberList = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps2 ->
-                            ps2.setString(1, memberList)
-                            ps2.setString(2, guildId)
-                            ps2.setString(3, factionName)
-                            ps2.executeUpdate()
+                            return FactionEntry(
+                                guildId = rs.getString("guild"),
+                                name = rs.getString("name"),
+                                factionOwnerId = rs.getString("ownerId"),
+                                factionRoleId = rs.getString("roleId"),
+                                description = rs.getString("description") ?: "",
+                                image = rs.getString("image"),
+                                color = rs.getString("color"),
+                                memberList = rs.getString("memberList") ?: "",
+                                alignment = rs.getString("alignment") ?: ""
+                            )
                         }
                     }
                 }
             }
-            println("Database.addFactionMember: added $userId to faction '$factionName' in guild $guildId")
-            return true
         } catch (e: Exception)
         {
-            println("Database.addFactionMember failed: ${e.message}")
+            println("Database.getFactionOfUser failed for user '$userId' in guild $guildId: ${e.message}")
             e.printStackTrace()
-            return false
         }
-    }
-
-    /**
-     * Remove a member from a faction's memberList.
-     */
-    fun removeFactionMember(guildId: String, factionName: String, userId: String): Boolean
-    {
-        init()
-        try
-        {
-            connect().use { conn ->
-                conn.prepareStatement("SELECT memberList FROM factions WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps ->
-                    ps.setString(1, guildId)
-                    ps.setString(2, factionName)
-                    ps.executeQuery().use { rs ->
-                        if (!rs.next())
-                        {
-                            println("Database.removeFactionMember: faction '$factionName' does not exist in guild $guildId.")
-                            return false
-                        }
-                        var memberList = rs.getString("memberList") ?: ""
-                        val members = memberList.split(",").toMutableList()
-                        members.remove(userId)
-                        memberList = members.joinToString(",")
-                        conn.prepareStatement("UPDATE factions SET memberList = ? WHERE guild = ? AND name = ? COLLATE NOCASE").use { ps2 ->
-                            ps2.setString(1, memberList)
-                            ps2.setString(2, guildId)
-                            ps2.setString(3, factionName)
-                            ps2.executeUpdate()
-                        }
-                    }
-                }
-            }
-            println("Database.removeFactionMember: removed $userId from faction '$factionName' in guild $guildId")
-            return true
-        } catch (e: Exception)
-        {
-            println("Database.removeFactionMember failed: ${e.message}")
-            e.printStackTrace()
-            return false
-        }
+        return null
     }
 
     //endregion

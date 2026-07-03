@@ -37,7 +37,7 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
     override suspend fun prepare(kord: Kord)
     {
         this.kord = kord
-        
+
         kord.createGlobalChatInputCommand(name, description) {
             subCommand("create", "Create a new faction")
             subCommand("update", "Update faction description and/or image") {
@@ -47,6 +47,12 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
                 string("name", "Faction name") { required = true }
             }
             subCommand("get", "Show faction information") {
+                string("name", "Faction name") { required = true }
+            }
+            subCommand("members", "Update the member list.") {
+                string("name", "Faction name") { required = true }
+            }
+            subCommand("image", "Update faction image") {
                 string("name", "Faction name") { required = true }
             }
             subCommand("list", "List all factions in this guild")
@@ -77,8 +83,10 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
 
             when (subCommand)
             {
-                "create" -> {
-                    if (!KordUtil.isModerator(event)) {
+                "create" ->
+                {
+                    if (!KordUtil.isModerator(event))
+                    {
                         event.interaction.respondEphemeral {
                             content = "Only moderators can create a new faction. Ping $modRoleName to create your faction."
                         }
@@ -86,41 +94,65 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
                     }
                     handleCreate(event)
                 }
-                "update" -> {
-                    if (!KordUtil.isModerator(event)) {
+
+                "update" ->
+                {
+                    if (!KordUtil.isModerator(event))
+                    {
                         event.interaction.respondEphemeral {
                             content = "Only moderators can update a faction. Ping $modRoleName to update your faction."
                         }
                     }
                     handleUpdate(event, guildIdVal)
                 }
-                "delete" -> {
-                    if (!KordUtil.isModerator(event)) {
+
+                "delete" ->
+                {
+                    if (!KordUtil.isModerator(event))
+                    {
                         event.interaction.respondEphemeral {
                             content = "Only moderators can delete a faction. Ping $modRoleName to delete your faction."
                         }
                     }
                     handleDelete(event, guildIdVal)
                 }
+
+                "members" ->
+                {
+                    if (!KordUtil.isModerator(event))
+                    {
+                        event.interaction.respondEphemeral {
+                            content = "Only moderators can edit faction members. Ping $modRoleName to add/remove members."
+                        }
+                    }
+                    handleMembers(event, guildIdVal)
+                }
+
+                "image" ->
+                {
+                    if (!KordUtil.isModerator(event))
+                    {
+                        event.interaction.respondEphemeral {
+                            content = "Only moderators can update faction images. Ping $modRoleName to update your faction image."
+                        }
+                    }
+                    handleImageUpdate(event, guildIdVal)
+                }
+
                 "get" -> handleGet(event, guildIdVal)
                 "list" -> handleList(event, guildIdVal)
             }
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("FactionFunction.execute failed: ${e.message}")
             e.printStackTrace()
             event.interaction.respondEphemeral { content = "An error occurred while processing your command." }
         }
     }
 
-    private suspend fun handleCreate(event: ChatInputCommandInteractionCreateEvent) {
+    private suspend fun handleCreate(event: ChatInputCommandInteractionCreateEvent)
+    {
         event.interaction.modal("Faction Builder", "faction_builder") {
-            label("Image") {
-                fileUpload("image_file") {
-                    minValues = 0
-                    maxValues = 1
-                    required = false
-                }
-            }
             label("Faction Name") {
                 textInput(TextInputStyle.Short, "name_input") {
                     required = true
@@ -154,7 +186,8 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
         }
     }
 
-    private suspend fun handleUpdate(event: ChatInputCommandInteractionCreateEvent, guildIdVal: String) {
+    private suspend fun handleUpdate(event: ChatInputCommandInteractionCreateEvent, guildIdVal: String)
+    {
         val factionName = event.interaction.command.strings["name"] ?: ""
 
         if (factionName.isBlank())
@@ -172,13 +205,6 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
         }
 
         event.interaction.modal("Faction Update: ${factionToUpdate.name}", "faction_update_${factionToUpdate.name}") {
-            label("Image") {
-                fileUpload("image_file") {
-                    minValues = 0
-                    maxValues = 1
-                    required = false
-                }
-            }
             label("Description") {
                 textInput(TextInputStyle.Paragraph, "description_input") {
                     required = false
@@ -212,25 +238,27 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
         }
     }
 
-    private suspend fun handleDelete(event: ChatInputCommandInteractionCreateEvent, guildIdVal: String) {
-        val response = event.interaction.deferPublicResponse()
-
+    private suspend fun handleDelete(event: ChatInputCommandInteractionCreateEvent, guildIdVal: String)
+    {
         val factionName = (event.interaction.command.strings["name"] ?: "").trim()
-        if (factionName.isBlank()) {
-            response.respond { content = "Faction name cannot be empty." }
+        if (factionName.isBlank())
+        {
+            event.interaction.respondEphemeral { content = "Faction name cannot be empty." }
             return
         }
 
         val faction = Database.getFaction(guildIdVal, factionName)
-        if (faction == null) {
-            response.respond { content = "Faction ${factionName.bold()} not found." }
+        if (faction == null)
+        {
+            event.interaction.respondEphemeral { content = "Faction ${factionName.bold()} not found." }
             return
         }
 
         val deleted = Database.deleteFaction(guildIdVal, factionName)
 
-        if (!deleted) {
-            response.respond { content = "Failed to delete faction ${factionName.bold()}." }
+        if (!deleted)
+        {
+            event.interaction.respondEphemeral { content = "Failed to delete faction ${factionName.bold()}." }
             return
         }
 
@@ -243,45 +271,108 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
             try
             {
                 out.delete()
-            } catch (e: Exception) {
+            } catch (e: Exception)
+            {
                 println("FactionFunction.handleDelete: could not delete image for faction $factionName: ${e.message}")
-                response.respond { content = "An internal error occurred." }
+                event.interaction.respondEphemeral { content = "An internal error occurred." }
                 return
             }
         }
 
         // Try to delete the associated Discord role
-        try {
+        try
+        {
             val guild = kord?.getGuild(Snowflake(guildIdVal))
             val role = guild?.getRoleOrNull(Snowflake(faction.factionRoleId))
             role?.delete("Faction deleted.")
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             println("FactionFunction.handleDelete: could not delete role ${faction.factionRoleId}: ${e.message}")
-            response.respond { content = "An internal error occurred." }
+            event.interaction.respondEphemeral { content = "An internal error occurred." }
             return
         }
 
-        response.respond { content = "Faction ${factionName.bold()} and its associated role have been deleted." }
+        event.interaction.respondEphemeral { content = "Faction ${factionName.bold()} and its associated role have been deleted." }
     }
 
-    private suspend fun handleGet(event: ChatInputCommandInteractionCreateEvent, guildIdVal: String) {
+    private suspend fun handleMembers(event: ChatInputCommandInteractionCreateEvent, guildIdVal: String)
+    {
+        val factionName = (event.interaction.command.strings["name"] ?: "").trim()
+        if (factionName.isBlank())
+        {
+            event.interaction.respondEphemeral { content = "Faction name cannot be empty." }
+            return
+        }
+
+        val faction = Database.getFaction(guildIdVal, factionName)
+        if (faction == null)
+        {
+            event.interaction.respondEphemeral { content = "Faction ${factionName.bold()} not found." }
+            return
+        }
+
+        val members = faction.memberList.split(",").map { Snowflake(it.trim()) }
+
+        event.interaction.modal("Members Update: $factionName", "members_update_$factionName") {
+            label("Members") {
+                userSelect("members_select") {
+                    allowedValues = 1..25
+                    defaultUsers.addAll(members)
+                }
+            }
+        }
+    }
+
+    private suspend fun handleImageUpdate(event: ChatInputCommandInteractionCreateEvent, guildIdVal: String)
+    {
+        val factionName = (event.interaction.command.strings["name"] ?: "").trim()
+        if (factionName.isBlank())
+        {
+            event.interaction.respondEphemeral { content = "Faction name cannot be empty." }
+            return
+        }
+
+        val faction = Database.getFaction(guildIdVal, factionName)
+        if (faction == null)
+        {
+            event.interaction.respondEphemeral { content = "Faction ${factionName.bold()} not found." }
+            return
+        }
+
+        event.interaction.modal("Image Update: $factionName", "image_update_$factionName") {
+            label("Image") {
+                fileUpload("image_file") {
+                    minValues = 0
+                    maxValues = 1
+                    required = false
+                }
+            }
+        }
+    }
+
+    private suspend fun handleGet(event: ChatInputCommandInteractionCreateEvent, guildIdVal: String)
+    {
         val response = event.interaction.deferPublicResponse()
 
         val factionName = (event.interaction.command.strings["name"] ?: "").trim()
-        if (factionName.isBlank()) {
+        if (factionName.isBlank())
+        {
             response.respond { content = "Faction name cannot be empty." }
             return
         }
 
         val faction = Database.getFaction(guildIdVal, factionName)
-        if (faction == null) {
+        if (faction == null)
+        {
             response.respond { content = "Faction ${factionName.bold()} not found." }
             return
         }
 
-        val owner = try {
+        val owner = try
+        {
             event.kord.getUser(Snowflake(faction.factionOwnerId))?.username ?: "Unknown"
-        } catch (e: Exception) {
+        } catch (e: Exception)
+        {
             "Unknown"
         }
 
@@ -293,12 +384,14 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
             embed {
                 title = faction.name
                 description = faction.description
-                color = try {
+                color = try
+                {
                     Color(faction.color.removePrefix("#").toInt(16))
-                } catch (e: Exception) {
+                } catch (e: Exception)
+                {
                     Color(128, 128, 128)  // default gray
                 }
-                
+
                 field {
                     name = "Owner"
                     value = owner
@@ -314,7 +407,7 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
                     value = if (members.isEmpty()) "None" else members.size.toString()
                     inline = true
                 }
-                
+
                 imagePath?.let {
                     image = "attachment://${it.fileName}"
                 }
@@ -323,12 +416,14 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
         }
     }
 
-    private suspend fun handleList(event: ChatInputCommandInteractionCreateEvent, guildIdVal: String) {
+    private suspend fun handleList(event: ChatInputCommandInteractionCreateEvent, guildIdVal: String)
+    {
         val response = event.interaction.deferPublicResponse()
 
         val factions = Database.listFactions(guildIdVal)
 
-        if (factions.isEmpty()) {
+        if (factions.isEmpty())
+        {
             response.respond { content = "No factions exist in this guild yet." }
             return
         }
@@ -336,67 +431,53 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
         val factionList = factions
             .map { Pair(it.name, KordUtil.getMemberName(kord, Snowflake(guildIdVal), Snowflake(it.factionOwnerId))) }
             .joinToString("\n") { (name, owner) ->
-            "• **$name** (Owner: $owner)"
-        }
+                "• **$name** (Owner: $owner)"
+            }
 
         response.respond {
             content = factionList
         }
     }
 
-    private suspend fun handleModalSubmission(event: GuildModalSubmitInteractionCreateEvent) {
+    private suspend fun handleModalSubmission(event: GuildModalSubmitInteractionCreateEvent)
+    {
         val guildIdVal = event.interaction.guildId.value.toString()
-        val response = event.interaction.deferEphemeralResponse()
 
         when (event.interaction.modalId)
         {
-            "faction_builder" -> {
+            "faction_builder" ->
+            {
                 val inputs = event.interaction.textInputs
 
                 val factionName = inputs["name_input"]?.value?.trim() ?: ""
                 val description = inputs["description_input"]?.value?.trim() ?: ""
                 var colorHex = inputs["color_input"]?.value?.trim() ?: ""
                 val factionOwnerId = event.interaction.userSelects["owner_select"]?.valueIds?.firstOrNull()?.value?.toString()
-                val alignment = event.interaction.radioGroups["alignment"]?.value?.trim() ?: ""
+                val alignment = event.interaction.radioGroups["alignment_select"]?.value?.trim() ?: ""
 
                 if (factionOwnerId == null)
                 {
-                    response.respond {
-                        content = "A Faction needs an owner! Please select a user to be the owner of this faction."
-                    }
+                    event.interaction.respondEphemeral { content = "A Faction needs an owner! Please select a user to be the owner of this faction." }
                     return
                 }
 
-                val imageSnowflake = event.interaction.fileUploads["image_file"]?.valueIds?.firstOrNull()
-
-                val imageUrl = event.interaction.data.data.resolvedObjectsData.value?.attachments?.value?.get(imageSnowflake)?.url
-
-                if (factionName.isBlank()) {
-                    response.respond { content = "Faction name cannot be empty." }
+                if (factionName.isBlank())
+                {
+                    event.interaction.respondEphemeral { content = "Faction name cannot be empty." }
                     return
                 }
-
-                var out: File? = null
-
-                imageUrl?.let {
-                    val outDir = File("db/factions")
-                    if (!outDir.exists()) outDir.mkdirs()
-                    out = File(outDir, "${factionName}_icon.png")
-
-                    println("Downloading image for faction $factionName...")
-                    KtorUtils.downloadImage(it, out)
-                } ?: println("No image for faction provided. Skipping download...")
 
                 // Check if faction already exists
                 Database.getFaction(guildIdVal, factionName)?.let {
-                    response.respond { content = "A faction with the name ${factionName.bold()} already exists." }
+                    event.interaction.respondEphemeral { content = "A faction with the name ${factionName.bold()} already exists." }
                     return
                 }
 
                 // Validate and normalize hex color
                 colorHex = colorHex.removePrefix("#").uppercase()
-                if (colorHex.length != 6 || !colorHex.all { it in '0'..'9' || it in 'A'..'F' }) {
-                    response.respond { content = "Invalid hex color format. Use 6 hex digits (e.g., FF0000)." }
+                if (colorHex.length != 6 || !colorHex.all { it in '0'..'9' || it in 'A'..'F' })
+                {
+                    event.interaction.respondEphemeral { content = "Invalid hex color format. Use 6 hex digits (e.g., FF0000)." }
                     return
                 }
                 colorHex = "#$colorHex"
@@ -404,7 +485,8 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
                 // Create the Discord role with the faction color
                 val guild = event.interaction.guild
 
-                try {
+                try
+                {
                     val color = Color(colorHex.removePrefix("#").toInt(16))
                     val role = guild.createRole {
                         name = factionName
@@ -418,37 +500,48 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
                         ownerId = factionOwnerId,
                         roleId = role.id.toString(),
                         description = description,
-                        image = out?.path,
                         color = colorHex,
                         alignment = alignment
                     )
 
-                    if (created) {
-                        response.respond {
+                    if (created)
+                    {
+                        event.interaction.respondEphemeral {
                             content = "Faction ${factionName.bold()} created successfully with role and color!"
                         }
-                    } else {
+                    } else
+                    {
                         role.delete()
-                        response.respond { content = "Failed to create faction in database." }
+                        event.interaction.respondEphemeral { content = "Failed to create faction in database." }
                     }
-                } catch (e: Exception) {
+                } catch (e: Exception)
+                {
                     println("FactionFunction.handleCreate: error creating role or faction: ${e.message}")
                     e.printStackTrace()
-                    response.respond { content = "Failed to create faction: ${e.message}" }
+                    event.interaction.respondEphemeral { content = "Failed to create faction: ${e.message}" }
                 }
             }
-            else if (event.interaction.modalId.startsWith("faction_update_")) -> {
+
+            else if (event.interaction.modalId.startsWith("faction_update_")) ->
+            {
                 val inputs = event.interaction.textInputs
 
                 val factionName = event.interaction.modalId.removePrefix("faction_update_")
                 val description = inputs["description_input"]?.value?.trim() ?: ""
                 var colorHex = inputs["color_input"]?.value?.trim() ?: ""
                 val factionOwnerId = event.interaction.userSelects["owner_select"]?.valueIds?.firstOrNull()?.value?.toString()
-                val alignment = event.interaction.radioGroups["alignment"]?.value?.trim() ?: ""
+                val alignment = event.interaction.radioGroups["alignment_select"]?.value?.trim() ?: ""
+
+                val faction = Database.getFaction(guildIdVal, factionName)
+                if (faction == null)
+                {
+                    event.interaction.respondEphemeral { content = "Faction ${factionName.bold()} not found." }
+                    return
+                }
 
                 if (factionOwnerId == null)
                 {
-                    response.respond {
+                    event.interaction.respondEphemeral {
                         content = "A Faction needs an owner! Please select a user to be the owner of this faction."
                     }
                     return
@@ -458,8 +551,9 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
 
                 val imageUrl = event.interaction.data.data.resolvedObjectsData.value?.attachments?.value?.get(imageSnowflake)?.url
 
-                if (factionName.isBlank()) {
-                    response.respond { content = "Faction name cannot be empty. This should never occur in update." }
+                if (factionName.isBlank())
+                {
+                    event.interaction.respondEphemeral { content = "Faction name cannot be empty. This should never occur in update." }
                     return
                 }
 
@@ -474,15 +568,17 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
 
                 // Validate and normalize hex color
                 colorHex = colorHex.removePrefix("#").uppercase()
-                if (colorHex.length != 6 || !colorHex.all { it in '0'..'9' || it in 'A'..'F' }) {
-                    response.respond { content = "Invalid hex color format. Use 6 hex digits (e.g., FF0000)." }
+                if (colorHex.length != 6 || !colorHex.all { it in '0'..'9' || it in 'A'..'F' })
+                {
+                    event.interaction.respondEphemeral { content = "Invalid hex color format. Use 6 hex digits (e.g., FF0000)." }
                     return
                 }
                 colorHex = "#$colorHex"
 
                 val guild = event.interaction.guild
 
-                try {
+                try
+                {
                     val color = Color(colorHex.removePrefix("#").toInt(16))
                     val roleId = Database.getFaction(guildIdVal, factionName)?.factionRoleId?.let { Snowflake(it) }
                     roleId?.let { guild.getRole(it) }?.edit { this.color = color } ?: println("Could not find role for faction $factionName to update color.")
@@ -495,20 +591,103 @@ object FactionFunction : FunctionBase("faction", "Everything about factions.")
                         newDescription = description,
                         newImage = if (out.exists()) out.path else null,
                         newColor = colorHex,
+                        newMemberList = faction.memberList,
                         alignment = alignment
                     )
 
-                    if (updated) {
-                        response.respond {
+                    if (updated)
+                    {
+                        event.interaction.respondEphemeral {
                             content = "Faction ${factionName.bold()} updated successfully!"
                         }
-                    } else {
-                        response.respond { content = "Failed to update faction in database." }
+                    } else
+                    {
+                        event.interaction.respondEphemeral { content = "Failed to update faction in database." }
                     }
-                } catch (e: Exception) {
+                } catch (e: Exception)
+                {
                     println("FactionFunction.handleCreate: error creating role or faction: ${e.message}")
                     e.printStackTrace()
-                    response.respond { content = "Failed to create faction: ${e.message}" }
+                    event.interaction.respondEphemeral { content = "Failed to create faction: ${e.message}" }
+                }
+            }
+
+            else if (event.interaction.modalId.startsWith("members_update_")) ->
+            {
+                val factionName = event.interaction.modalId.removePrefix("members_update_")
+                val faction = Database.getFaction(guildIdVal, factionName)
+                if (faction == null)
+                {
+                    event.interaction.respondEphemeral { content = "Faction ${factionName.bold()} not found." }
+                    return
+                }
+
+                val selectedMembers = event.interaction.userSelects["members_select"]?.valueIds?.map { it.value.toString() } ?: emptyList()
+                val memberListStr = selectedMembers.joinToString(",")
+
+                val updated = Database.updateFaction(
+                    guildId = guildIdVal,
+                    name = factionName,
+                    ownerId = faction.factionOwnerId,
+                    newDescription = faction.description,
+                    newImage = faction.image,
+                    newColor = faction.color,
+                    newMemberList = memberListStr,
+                    alignment = faction.alignment
+                )
+
+                if (updated)
+                {
+                    event.interaction.respondEphemeral {
+                        content = "Members for faction ${factionName.bold()} updated successfully!"
+                    }
+                } else
+                {
+                    event.interaction.respondEphemeral { content = "Failed to update members for faction ${factionName.bold()}." }
+                }
+            }
+
+            else if (event.interaction.modalId.startsWith("image_update_")) ->
+            {
+                val factionName = event.interaction.modalId.removePrefix("image_update_")
+                val faction = Database.getFaction(guildIdVal, factionName)
+                if (faction == null)
+                {
+                    event.interaction.respondEphemeral { content = "Faction ${factionName.bold()} not found." }
+                    return
+                }
+
+                val imageSnowflake = event.interaction.fileUploads["image_file"]?.valueIds?.firstOrNull()
+                val imageUrl = event.interaction.data.data.resolvedObjectsData.value?.attachments?.value?.get(imageSnowflake)?.url
+
+                val outDir = File("db/factions")
+                if (!outDir.exists()) outDir.mkdirs()
+                val out = File(outDir, "${factionName}_icon.png")
+
+                imageUrl?.let {
+                    println("Updating image for faction $factionName...")
+                    KtorUtils.downloadImage(it, out)
+                } ?: out.delete()
+
+                val updated = Database.updateFaction(
+                    guildId = guildIdVal,
+                    name = factionName,
+                    ownerId = faction.factionOwnerId,
+                    newDescription = faction.description,
+                    newImage = if (out.exists()) out.path else null,
+                    newColor = faction.color,
+                    newMemberList = faction.memberList,
+                    alignment = faction.alignment
+                )
+
+                if (updated)
+                {
+                    event.interaction.respondEphemeral {
+                        content = "Image for faction ${factionName.bold()} updated successfully!"
+                    }
+                } else
+                {
+                    event.interaction.respondEphemeral { content = "Failed to update image for faction ${factionName.bold()}." }
                 }
             }
         }
