@@ -1,6 +1,6 @@
 services:
   nicerdicer:
-    build: .
+    image: ghcr.io/jagenka/nicerdicer:latest
     container_name: nicerdicer
     restart: unless-stopped
     environment:
